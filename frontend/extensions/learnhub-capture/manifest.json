@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "LearnHub Capture",
+  "version": "0.1.0",
+  "description": "Captures contest submissions in real time across competitive programming platforms and forwards them to your LearnHub dashboard.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://codeforces.com/*",
+    "https://www.codechef.com/*",
+    "https://leetcode.com/*",
+    "https://atcoder.jp/*",
+    "https://www.hackerrank.com/*",
+    "https://www.hackerearth.com/*",
+    "https://practice.geeksforgeeks.org/*",
+    "http://localhost:5000/*",
+    "https://*/api/extension/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://codeforces.com/contest/*",
+        "https://codeforces.com/problemset/*",
+        "https://codeforces.com/gym/*"
+      ],
+      "js": ["platforms/codeforces.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://atcoder.jp/contests/*",
+        "https://atcoder.jp/users/*"
+      ],
+      "js": ["platforms/atcoder.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://leetcode.com/problems/*", "https://leetcode.com/contest/*"],
+      "js": ["platforms/leetcode.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.codechef.com/*"],
+      "js": ["platforms/codechef.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "LearnHub Capture"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,45 @@
+import { Router } from 'express';
+import authRoutes from './auth.js';
+import goalRoutes from './goals.js';
+import aiRoutes from './ai.js';
+import problemRoutes from './problems.js';
+import profileRoutes from './profile.js';
+import rewindRoutes from './rewind.js';
+import groupRoutes from './groups.js';
+import analyzerRoutes from './analyzer.js';
+import integrationRoutes from './integrations.js';
+import badgeRoutes from './badges.js';
+import notificationRoutes from './notifications.js';
+import interviewRoutes from './interview.js';
+import roomRoutes from './rooms.js';
+import codeReviewRoutes from './codeReviews.js';
+import contestRoutes from './contests.js';
+import linksRoutes from './links.js';
+import extensionRoutes from './extension.js';
+import webhookRoutes from './webhooks.js';
+import sessionRoutes from './sessions.js';
+
+const router = Router();
+
+router.get('/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+router.use('/auth', authRoutes);
+router.use('/goals', goalRoutes);
+router.use('/ai', aiRoutes);
+router.use('/problems', problemRoutes);
+router.use('/profile', profileRoutes);
+router.use('/rewind', rewindRoutes);
+router.use('/groups', groupRoutes);
+router.use('/analyzer', analyzerRoutes);
+router.use('/integrations', integrationRoutes);
+router.use('/badges', badgeRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/interview', interviewRoutes);
+router.use('/rooms', roomRoutes);
+router.use('/code-reviews', codeReviewRoutes);
+router.use('/contests', contestRoutes);
+router.use('/links', linksRoutes);
+router.use('/extension', extensionRoutes);
+router.use('/webhooks', webhookRoutes);
+router.use('/sessions', sessionRoutes);
+
+export default router;

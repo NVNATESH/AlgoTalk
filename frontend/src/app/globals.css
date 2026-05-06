@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html,
+  body {
+    @apply bg-bg text-zinc-100;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-image:
+      radial-gradient(at 20% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, rgba(236, 72, 153, 0.12) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, rgba(6, 182, 212, 0.1) 0px, transparent 50%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  *::selection {
+    @apply bg-accent-violet/40 text-white;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl;
+  }
+
+  .glass-strong {
+    @apply bg-white/10 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-accent-violet to-accent-fuchsia bg-clip-text text-transparent;
+  }
+
+  .input-base {
+    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-zinc-100 placeholder:text-zinc-500
+           focus:outline-none focus:ring-2 focus:ring-accent-violet/60 focus:border-transparent
+           transition-all;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold
+           bg-gradient-to-r from-accent-violet to-accent-fuchsia text-white
+           shadow-lg shadow-accent-violet/25
+           hover:shadow-xl hover:shadow-accent-fuchsia/30 hover:scale-[1.02]
+           active:scale-[0.98] transition-all
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-medium
+           bg-white/5 border border-white/10 text-zinc-200
+           hover:bg-white/10 hover:border-white/20
+           active:scale-[0.98] transition-all;
+  }
+
+  .link-accent {
+    @apply text-accent-violet hover:text-accent-fuchsia transition-colors underline-offset-4 hover:underline;
+  }
+}
+
+/* AI code-review glyph margin markers (Module 11 slice 2) */
+.review-glyph {
+  width: 4px !important;
+  margin-left: 6px;
+  border-radius: 2px;
+  height: 100% !important;
+}
+.review-glyph-critical {
+  background: #f43f5e; /* accent-rose */
+  box-shadow: 0 0 6px rgba(244, 63, 94, 0.6);
+}
+.review-glyph-warning {
+  background: #fbbf24; /* amber-400 */
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.55);
+}
+.review-glyph-suggestion {
+  background: #a78bfa; /* accent-violet */
+  box-shadow: 0 0 6px rgba(167, 139, 250, 0.5);
+}
+.review-glyph-info {
+  background: #22d3ee; /* accent-cyan */
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.5);
+}
+/* Subtle line tint where a review comment lands */
+.review-line-critical {
+  background: rgba(244, 63, 94, 0.08);
+}
+.review-line-warning {
+  background: rgba(251, 191, 36, 0.07);
+}
+.review-line-suggestion {
+  background: rgba(167, 139, 250, 0.07);
+}
+.review-line-info {
+  background: rgba(34, 211, 238, 0.06);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
