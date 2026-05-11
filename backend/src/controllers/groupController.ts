@@ -87,6 +87,7 @@ export const postChallengeSchema = z.discriminatedUnion('type', [
     title: z.string().min(2).max(120),
     description: z.string().max(2000).optional(),
     points: z.number().int().min(1).max(1000).default(10),
+    deadlineHours: z.number().min(1).max(168).default(24).optional(),
     problemSlug: z.string().min(1).max(100).optional(),
     externalUrl: z.string().url().max(500).optional(),
     externalPlatform: externalPlatformEnum.optional(),
@@ -98,6 +99,7 @@ export const postChallengeSchema = z.discriminatedUnion('type', [
     title: z.string().min(2).max(120),
     description: z.string().max(2000).optional(),
     points: z.number().int().min(1).max(1000).default(10),
+    deadlineHours: z.number().min(1).max(168).default(24).optional(),
     questionImageUrl: z.string().url().max(500).optional(),
     options: z.object({
       A: z.string().min(1).max(300),
@@ -180,7 +182,7 @@ export const listMeets = asyncHandler(async (req, res) => {
 
 export const acceptMeet = asyncHandler(async (req, res) => {
   if (!req.userId) throw ApiError.unauthorized();
-  const out = await ms.acceptMeet(req.userId, req.params.meetId);
+  const out = await ms.acceptMeet(req.userId, req.params.meetId, req.body.scheduledTime);
   res.json(out);
 });
 
@@ -188,4 +190,16 @@ export const cancelMeet = asyncHandler(async (req, res) => {
   if (!req.userId) throw ApiError.unauthorized();
   const meet = await ms.cancelMeet(req.userId, req.params.meetId);
   res.json({ meet });
+});
+
+export const activeMeeting = asyncHandler(async (req, res) => {
+  if (!req.userId) throw ApiError.unauthorized();
+  const out = await ms.getActiveGroupMeeting(req.userId, req.params.id);
+  res.json(out);
+});
+
+export const endMeeting = asyncHandler(async (req, res) => {
+  if (!req.userId) throw ApiError.unauthorized();
+  const out = await ms.endActiveGroupMeeting(req.userId, req.params.id);
+  res.json(out);
 });

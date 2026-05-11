@@ -20,7 +20,7 @@ export function AuthShell({
         href="/"
         className="absolute left-6 top-6 font-display text-lg font-bold gradient-text hover:opacity-80"
       >
-        LearnHub
+        AlgoTalk
       </Link>
 
       <motion.div

@@ -17,6 +17,7 @@ interface PostCodingInput {
   title: string;
   description?: string;
   points: number;
+  deadlineHours?: number;
   problemSlug?: string;
   externalUrl?: string;
   externalPlatform?:
@@ -37,6 +38,7 @@ interface PostAptitudeInput {
   title: string;
   description?: string;
   points: number;
+  deadlineHours?: number;
   questionImageUrl?: string;
   options: { A: string; B: string; C: string; D: string };
   correctAnswer: 'A' | 'B' | 'C' | 'D';
@@ -86,7 +88,8 @@ export async function postChallenge(userId: string, groupId: string, input: Post
     }
   }
 
-  const expiresAt = new Date(Date.now() + DAY_MS);
+  const hours = Math.min(Math.max(input.deadlineHours ?? 24, 1), 168); // 1h to 7 days
+  const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
 
   const doc = await GroupChallenge.create({
     groupId,
@@ -119,10 +122,11 @@ export async function postChallenge(userId: string, groupId: string, input: Post
         .filter((id: string) => id !== userId);
       if (recipients.length > 0) {
         const typeLabel = input.type === 'coding' ? 'coding' : 'aptitude';
+        const deadlineLabel = hours >= 24 ? `${Math.round(hours / 24)}d` : `${hours}h`;
         void emitNotifications(recipients, {
           type: 'challenge_posted',
           title: `New ${typeLabel} challenge in ${group.icon ?? '👥'} ${group.name}`,
-          message: `"${input.title.trim()}" · ${input.points} pts · 24h to win`,
+          message: `"${input.title.trim()}" · ${input.points} pts · ${deadlineLabel} to win`,
           icon: '📢',
           link: `/groups/${groupId}`,
           priority: 'medium',
@@ -134,7 +138,16 @@ export async function postChallenge(userId: string, groupId: string, input: Post
     // ignore — notification fan-out failure must not break the post
   }
 
-  return challengeToJSON(doc.toObject(), userId);
+  const creator = await User.findById(userId).select('username').lean();
+  const enriched = { ...doc.toObject(), _createdByUsername: creator?.username ?? 'unknown' };
+  return challengeToJSON(enriched, userId);
+}
+
+async function hydrateCreatorUsernames(docs: any[]): Promise<any[]> {
+  const creatorIds = [...new Set(docs.map((d) => String(d.createdBy)))];
+  const users = await User.find({ _id: { $in: creatorIds } }).select('username').lean();
+  const nameMap = new Map(users.map((u) => [String(u._id), u.username]));
+  return docs.map((d) => ({ ...d, _createdByUsername: nameMap.get(String(d.createdBy)) ?? 'unknown' }));
 }
 
 export async function listChallenges(userId: string, groupId: string) {
@@ -154,7 +167,9 @@ export async function listChallenges(userId: string, groupId: string) {
     })
   );
 
-  return resolvedDocs.map((d) => challengeToJSON(d, userId));
+  const hydratedDocs = await hydrateCreatorUsernames(resolvedDocs);
+
+  return hydratedDocs.map((d) => challengeToJSON(d, userId));
 }
 
 export async function getChallenge(userId: string, challengeId: string) {
@@ -533,11 +548,19 @@ export async function verifyExternalSolve(userId: string, challengeId: string) {
     .lean();
 
   if (!match) {
+    const integ = await Integration.findOne({ userId, platform })
+      .select('lastSyncAt lastSyncStatus')
+      .lean();
     return {
       verified: false,
       message:
         'No accepted submission found for this problem in the challenge window yet. Solve it on the platform, then try again.',
       challenge: challengeToJSON(challenge.toObject(), userId),
+      sync: {
+        platform,
+        lastSyncAt: integ?.lastSyncAt ? new Date(integ.lastSyncAt).toISOString() : null,
+        lastSyncStatus: integ?.lastSyncStatus ?? null,
+      },
     };
   }
 
@@ -587,9 +610,21 @@ export async function verifyExternalSolve(userId: string, challengeId: string) {
     });
   }
 
+  // Fresh integration row to surface `lastSyncAt` to the UI alongside the verify result.
+  const updatedIntegration = await Integration.findOne({ userId, platform })
+    .select('lastSyncAt lastSyncStatus')
+    .lean();
+
   return {
     verified: true,
     message: `Found an accepted submission on ${platform} from ${new Date(match.submittedAt as Date).toLocaleString()}.`,
     challenge: challengeToJSON(challenge.toObject(), userId),
+    sync: {
+      platform,
+      lastSyncAt: updatedIntegration?.lastSyncAt
+        ? new Date(updatedIntegration.lastSyncAt).toISOString()
+        : null,
+      lastSyncStatus: updatedIntegration?.lastSyncStatus ?? null,
+    },
   };
 }

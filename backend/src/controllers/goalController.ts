@@ -3,6 +3,9 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import * as goalSvc from '../services/goalService.js';
 import { getBurnoutStatus } from '../services/burnoutService.js';
+import { Problem, problemSummary } from '../models/Problem.js';
+import { Submission } from '../models/Submission.js';
+import { Goal } from '../models/Goal.js';
 
 const difficultyEnum = z.enum(['Beginner', 'Intermediate', 'Advanced', 'Master']);
 const priorityEnum = z.enum(['P0', 'P1', 'P2']);
@@ -14,6 +17,7 @@ export const createGoalSchema = z.object({
   deadlineDays: z.number().int().min(3).max(365).optional(),
   priority: priorityEnum.optional(),
   notes: z.string().max(500).optional(),
+  generateFromProfile: z.boolean().optional(),
 });
 
 export const previewSchema = z.object({
@@ -134,3 +138,44 @@ export const logTime = asyncHandler(async (req, res) => {
   );
   res.json({ goal });
 });
+
+/** GET /goals/:id/modules/:moduleId/problems — list problems with solve status */
+export const moduleProblems = asyncHandler(async (req, res) => {
+  if (!req.userId) throw ApiError.unauthorized();
+  const goal = await goalSvc.getGoal(req.userId, req.params.id);
+  const mod = goal.modules.find((m: any) => m.moduleId === req.params.moduleId);
+  if (!mod) throw ApiError.notFound('Module not found');
+
+  const slugs = (mod as any).problemSlugs as string[] ?? [];
+  if (slugs.length === 0) {
+    res.json({ problems: [], solved: 0, total: 0 });
+    return;
+  }
+
+  const problems = await Problem.find({ slug: { $in: slugs } }).lean();
+
+  // Get user's accepted problem IDs
+  const problemIds = problems.map((p) => p._id);
+  const acceptedIds = await Submission.distinct('problemId', {
+    userId: req.userId,
+    problemId: { $in: problemIds },
+    status: 'accepted',
+  });
+  const acceptedSet = new Set(acceptedIds.map(String));
+
+  const result = problems.map((p) => ({
+    ...problemSummary(p),
+    solved: acceptedSet.has(String(p._id)),
+  }));
+
+  // Sort to match the order in problemSlugs
+  const slugOrder = new Map(slugs.map((s, i) => [s, i]));
+  result.sort((a, b) => (slugOrder.get(a.slug) ?? 99) - (slugOrder.get(b.slug) ?? 99));
+
+  res.json({
+    problems: result,
+    solved: result.filter((r) => r.solved).length,
+    total: result.length,
+  });
+});
+

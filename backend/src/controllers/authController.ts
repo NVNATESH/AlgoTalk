@@ -103,9 +103,15 @@ const NOTIFICATION_TYPE_KEYS = [
 export const updatePreferencesSchema = z.object({
   theme: z.enum(['dark', 'light']).optional(),
   notifications: z.boolean().optional(),
+  emailNotifications: z.boolean().optional(),
   soundEffects: z.boolean().optional(),
   voiceMuteByDefault: z.boolean().optional(),
   notificationPrefs: z
+    .record(z.enum(NOTIFICATION_TYPE_KEYS), z.boolean())
+    .optional(),
+  // Per-type EMAIL opt-out (independent of in-app prefs above). Lets users
+  // keep the in-app ping but skip the inbox for chosen types.
+  emailNotificationPrefs: z
     .record(z.enum(NOTIFICATION_TYPE_KEYS), z.boolean())
     .optional(),
 });
@@ -148,7 +154,6 @@ export const exportData = asyncHandler(async (req, res) => {
 });
 
 // ---------------- 2FA ----------------
-export const start2faSchema = z.object({});
 export const start2fa = asyncHandler(async (req, res) => {
   if (!req.userId) throw ApiError.unauthorized();
   const out = await auth.start2faSetup(req.userId);

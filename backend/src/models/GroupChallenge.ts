@@ -76,6 +76,7 @@ export interface ChallengeJSON {
   groupId: string;
   type: 'coding' | 'aptitude';
   createdBy: string;
+  createdByUsername: string;
   title: string;
   description: string;
   points: number;
@@ -113,6 +114,7 @@ export const challengeToJSON = (c: any, viewerId?: string): ChallengeJSON => {
     groupId: String(c.groupId),
     type: c.type,
     createdBy: String(c.createdBy),
+    createdByUsername: c._createdByUsername ?? '',
     title: c.title,
     description: c.description,
     points: c.points,

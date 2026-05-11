@@ -26,7 +26,7 @@ export function rewindInsightsPrompt(data: RewindData, userName: string): string
     detail: ms.detail,
   }));
 
-  return `You are writing a "Year in Review" story for ${userName} on LearnHub. Tone: warm, motivating, specific. NEVER cheesy. NEVER over-praise.
+  return `You are writing a "Year in Review" story for ${userName} on AlgoTalk. Tone: warm, motivating, specific. NEVER cheesy. NEVER over-praise.
 
 YEAR: ${data.year}
 

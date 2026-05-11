@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Flame, Eye, PauseCircle, PlayCircle, Crosshair, Loader2, Trash2, MoreVertical, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Goal } from '@/types/goal';
@@ -33,7 +33,7 @@ function riskState(g: Goal): { color: string; emoji: string; label: string } {
   return { color: 'text-accent-emerald', emoji: '🟢', label: 'On track' };
 }
 
-export function GoalCard({ goal, index = 0 }: { goal: Goal; index?: number }) {
+function GoalCardImpl({ goal, index = 0 }: { goal: Goal; index?: number }) {
   const { setFocus, unfocus, pause, deleteGoal } = useGoals();
   const [busy, setBusy] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,7 +58,7 @@ export function GoalCard({ goal, index = 0 }: { goal: Goal; index?: number }) {
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
+      transition={{ duration: 0.25, delay: Math.min(index * 0.04, 0.3) }}
       whileHover={{ scale: 1.01 }}
       className={cn(
         'glass relative p-5 transition',
@@ -243,3 +243,5 @@ function MenuItem({
     </button>
   );
 }
+
+export const GoalCard = memo(GoalCardImpl);

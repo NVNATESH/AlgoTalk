@@ -8,6 +8,13 @@ const router = Router();
 
 router.use(requireAuth);
 
+// Question bank (admin-curated, served to all users)
+router.get('/questions', c.listQuestions);
+router.get('/questions/:id', c.getQuestion);
+
+// Add interview questions to learning path (creates a quest goal)
+router.post('/questions/add-to-path', validateBody(c.addToLearningPathSchema), c.addToLearningPath);
+
 router.get('/', c.list);
 router.post('/', aiLimiter, validateBody(c.startSchema), c.start);
 

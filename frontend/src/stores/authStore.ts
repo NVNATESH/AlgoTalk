@@ -7,7 +7,7 @@ export interface User {
   username: string;
   email: string;
   isVerified: boolean;
-  role: 'user' | 'admin';
+  role: 'user' | 'moderator' | 'admin';
   profilePic: string;
   bio: string;
   xp: number;

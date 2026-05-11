@@ -214,6 +214,58 @@ export const BADGES: BadgeDef[] = [
     criteria: (c) => c.languagesUsed >= 3,
     progress: (c) => ratio(c.languagesUsed, 3),
   },
+
+  // === Quest & Recommended Goals ===
+  {
+    key: 'quest_first',
+    name: 'Quest Starter',
+    description: 'Completed your first quest-based goal',
+    icon: '🎮',
+    tier: 'bronze',
+    category: 'goals',
+    criteria: (c) => c.goalsCompleted >= 1,
+    progress: (c) => ratio(c.goalsCompleted, 1),
+  },
+  {
+    key: 'quest_master',
+    name: 'Quest Master',
+    description: 'Completed 10 quest-based goals',
+    icon: '🏰',
+    tier: 'platinum',
+    category: 'goals',
+    criteria: (c) => c.goalsCompleted >= 10,
+    progress: (c) => ratio(c.goalsCompleted, 10),
+  },
+  {
+    key: 'company_prep_5',
+    name: 'Company Hunter',
+    description: 'Completed 5 company preparation goals',
+    icon: '🏢',
+    tier: 'gold',
+    category: 'goals',
+    criteria: (c) => c.goalsCompleted >= 5,
+    progress: (c) => ratio(c.goalsCompleted, 5),
+  },
+  {
+    key: 'ai_plan_3',
+    name: 'AI Architect',
+    description: 'Created 3 AI-generated learning plans',
+    icon: '🤖',
+    tier: 'silver',
+    category: 'goals',
+    criteria: (c) => c.goalCount >= 3,
+    progress: (c) => ratio(c.goalCount, 3),
+  },
+  {
+    key: 'centurion_hours',
+    name: '100 Hours Club',
+    description: 'Logged 100+ hours of focused learning',
+    icon: '⏳',
+    tier: 'platinum',
+    category: 'consistency',
+    criteria: (c) => c.totalActualMinutes >= 100 * 60,
+    progress: (c) => ratio(c.totalActualMinutes, 100 * 60),
+  },
 ];
 
 export const BADGE_BY_KEY = new Map<string, BadgeDef>(BADGES.map((b) => [b.key, b] as const));

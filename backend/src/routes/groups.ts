@@ -40,4 +40,8 @@ router.post('/:id/meets', validateBody(c.requestMeetSchema), c.requestMeet);
 router.post('/:id/meets/:meetId/accept', c.acceptMeet);
 router.post('/:id/meets/:meetId/cancel', c.cancelMeet);
 
+// Pinned active meeting per group (at most one)
+router.get('/:id/active-meeting', c.activeMeeting);
+router.post('/:id/active-meeting/end', c.endMeeting);
+
 export default router;

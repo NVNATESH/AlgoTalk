@@ -4,6 +4,12 @@ import { syncUpcomingContests } from './contestAggregator.js';
 import { tickLiveContests } from './liveContestTracker.js';
 import { tickRatingChanges } from './ratingChangeIngester.js';
 import { runGoalAdaptation } from './goalAdaptation.js';
+import {
+  runDailyReminders,
+  runStreakAlerts,
+  runDeadlineWarnings,
+  runWeeklyReports,
+} from './automationService.js';
 import { logger } from '../config/logger.js';
 import { env } from '../config/env.js';
 
@@ -66,6 +72,22 @@ export function startSyncScheduler() {
   // 12h between runs so calling it twice a day is harmless.
   setTimeout(() => void runGoalAdaptation().catch(() => undefined), 10 * 60 * 1000);
   setInterval(() => void runGoalAdaptation().catch(() => undefined), 12 * 60 * 60 * 1000);
+
+  // ── Automation: Daily reminders (every 24h, first run after 15min) ──
+  setTimeout(() => void runDailyReminders().catch(() => undefined), 15 * 60 * 1000);
+  setInterval(() => void runDailyReminders().catch(() => undefined), 24 * 60 * 60 * 1000);
+
+  // ── Automation: Streak alerts (every 12h) ──
+  setTimeout(() => void runStreakAlerts().catch(() => undefined), 20 * 60 * 1000);
+  setInterval(() => void runStreakAlerts().catch(() => undefined), 12 * 60 * 60 * 1000);
+
+  // ── Automation: Deadline warnings (every 12h) ──
+  setTimeout(() => void runDeadlineWarnings().catch(() => undefined), 25 * 60 * 1000);
+  setInterval(() => void runDeadlineWarnings().catch(() => undefined), 12 * 60 * 60 * 1000);
+
+  // ── Automation: Weekly reports (every 7 days, first run after 30min) ──
+  setTimeout(() => void runWeeklyReports().catch(() => undefined), 30 * 60 * 1000);
+  setInterval(() => void runWeeklyReports().catch(() => undefined), 7 * 24 * 60 * 60 * 1000);
 }
 
 export function stopSyncScheduler() {

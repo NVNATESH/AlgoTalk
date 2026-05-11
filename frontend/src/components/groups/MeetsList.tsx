@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -30,21 +30,29 @@ interface Props {
 export function MeetsList({ meets, groupId, currentUserId, onUpdate }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [acceptingMeetId, setAcceptingMeetId] = useState<string | null>(null);
+  const [scheduledTime, setScheduledTime] = useState('');
 
   const accept = async (meetId: string) => {
+    if (!scheduledTime) {
+      toast.error('Please set a meeting time before accepting');
+      return;
+    }
     setBusy(meetId);
     try {
       const r = await api<{ meet: MeetRequest; roomId: string }>(
         `/groups/${groupId}/meets/${meetId}/accept`,
-        { method: 'POST', auth: true }
+        { method: 'POST', auth: true, body: { scheduledTime } }
       );
       onUpdate(r.meet);
-      toast.success('Meet accepted — opening workspace…');
+      toast.success(`Meet accepted — scheduled for ${new Date(scheduledTime).toLocaleString()}`);
       router.push(`/rooms/${r.roomId}`);
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Accept failed');
     } finally {
       setBusy(null);
+      setAcceptingMeetId(null);
+      setScheduledTime('');
     }
   };
 
@@ -73,7 +81,7 @@ export function MeetsList({ meets, groupId, currentUserId, onUpdate }: Props) {
         </div>
         <h3 className="mt-3 font-display text-lg font-semibold">No meet requests yet</h3>
         <p className="mt-1 text-sm text-zinc-400">
-          Stuck on a challenge? Request a pair-coding meet from any active challenge — group
+          Stuck on a challenge? Request a pair-coding meet from any active challenge â€” group
           members will see it here and can accept.
         </p>
       </div>
@@ -88,7 +96,7 @@ export function MeetsList({ meets, groupId, currentUserId, onUpdate }: Props) {
       {pending.length > 0 && (
         <section>
           <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-zinc-400">
-            🟢 Open requests · {pending.length}
+            ðŸŸ¢ Open requests Â· {pending.length}
           </h3>
           <div className="space-y-3">
             {pending.map((m, i) => (
@@ -97,7 +105,17 @@ export function MeetsList({ meets, groupId, currentUserId, onUpdate }: Props) {
                 meet={m}
                 isMine={m.requesterId === currentUserId}
                 busy={busy === m.id}
-                onAccept={() => accept(m.id)}
+                isAccepting={acceptingMeetId === m.id}
+                scheduledTime={scheduledTime}
+                onScheduledTimeChange={setScheduledTime}
+                onAcceptClick={() => {
+                  if (acceptingMeetId === m.id) {
+                    accept(m.id);
+                  } else {
+                    setAcceptingMeetId(m.id);
+                    setScheduledTime('');
+                  }
+                }}
                 onCancel={() => cancel(m.id)}
                 index={i}
               />
@@ -108,7 +126,7 @@ export function MeetsList({ meets, groupId, currentUserId, onUpdate }: Props) {
       {past.length > 0 && (
         <section>
           <h3 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-zinc-400">
-            ⏳ Past · {past.length}
+            â³ Past Â· {past.length}
           </h3>
           <div className="space-y-2">
             {past.map((m) => (
@@ -125,14 +143,20 @@ function MeetCard({
   meet,
   isMine,
   busy,
-  onAccept,
+  isAccepting,
+  scheduledTime,
+  onScheduledTimeChange,
+  onAcceptClick,
   onCancel,
   index,
 }: {
   meet: MeetRequest;
   isMine: boolean;
   busy: boolean;
-  onAccept: () => void;
+  isAccepting: boolean;
+  scheduledTime: string;
+  onScheduledTimeChange: (v: string) => void;
+  onAcceptClick: () => void;
   onCancel: () => void;
   index: number;
 }) {
@@ -140,7 +164,7 @@ function MeetCard({
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: Math.min(index * 0.03, 0.25) }}
       className="glass relative overflow-hidden p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -203,24 +227,42 @@ function MeetCard({
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-col items-end gap-2">
           {isMine ? (
             <button onClick={onCancel} disabled={busy} className="btn-ghost text-xs">
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
               Cancel
             </button>
           ) : (
-            <button onClick={onAccept} disabled={busy} className="btn-primary text-xs">
-              {busy ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Accepting…
-                </>
-              ) : (
-                <>
-                  <Check className="h-3.5 w-3.5" /> Accept & open
-                </>
+            <>
+              {isAccepting && (
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-zinc-500">Set meeting time:</label>
+                  <input
+                    type="datetime-local"
+                    value={scheduledTime}
+                    onChange={(e) => onScheduledTimeChange(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)}
+                    className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-zinc-200"
+                  />
+                </div>
               )}
-            </button>
+              <button onClick={onAcceptClick} disabled={busy || (isAccepting && !scheduledTime)} className="btn-primary text-xs">
+                {busy ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Accepting…
+                  </>
+                ) : isAccepting ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" /> Confirm & open
+                  </>
+                ) : (
+                  <>
+                    <Clock className="h-3.5 w-3.5" /> Set time & accept
+                  </>
+                )}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -245,8 +287,8 @@ function PastMeetCard({ meet }: { meet: MeetRequest }) {
         )}
         <div className="min-w-0">
           <div className="truncate text-zinc-200">
-            {meet.requester?.name ?? 'Someone'} ·{' '}
-            <span className="text-zinc-500">"{meet.challengeTitle ?? '—'}"</span>
+            {meet.requester?.name ?? 'Someone'} Â·{' '}
+            <span className="text-zinc-500">"{meet.challengeTitle ?? 'â€”'}"</span>
           </div>
           <div className="text-[10px] text-zinc-500">
             <StatusPill status={meet.status} />

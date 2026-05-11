@@ -43,6 +43,13 @@ const integrationSchema = new Schema(
     lastSyncError: { type: String, default: '' },
     syncCount: { type: Number, default: 0 },
     submissionCount: { type: Number, default: 0 },
+    // Authoritative count of *distinct accepted problems* on this platform.
+    // Computed at sync time as MAX(distinct local-cached AC problemIds,
+    // profile-reported total). The profile total is the source of truth when
+    // the platform's API hides per-problem enumeration (LeetCode, GFG): the
+    // local cache is a lower bound there. For platforms that expose full
+    // history (Codeforces, AtCoder, CodeChef) the local count is exact.
+    solvedCount: { type: Number, default: 0 },
 
     isActive: { type: Boolean, default: true },
   },
@@ -74,6 +81,7 @@ export const integrationToJSON = (i: any) => ({
   lastSyncError: i.lastSyncError ?? '',
   syncCount: i.syncCount,
   submissionCount: i.submissionCount,
+  solvedCount: i.solvedCount ?? 0,
   isActive: i.isActive,
   createdAt: i.createdAt,
 });

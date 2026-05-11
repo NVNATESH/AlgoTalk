@@ -1,14 +1,37 @@
 import { GoogleGenerativeAI, type GenerativeModel } from '@google/generative-ai';
-import { env } from '../config/env.js';
+import { env, getGeminiKeys } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { ApiError } from '../utils/ApiError.js';
 
+/* ── Multi-key rotation ────────────────────────────────────────────── */
+const allKeys = getGeminiKeys();
+let currentKeyIndex = 0;
+
+function currentKey(): string {
+  if (allKeys.length === 0) {
+    throw ApiError.badRequest('No GEMINI_API_KEY or GEMINI_API_KEYS configured on the server');
+  }
+  return allKeys[currentKeyIndex % allKeys.length];
+}
+
+function rotateKey(): boolean {
+  if (allKeys.length <= 1) return false;
+  const prev = currentKeyIndex;
+  currentKeyIndex = (currentKeyIndex + 1) % allKeys.length;
+  // Reset cached clients so a new one is built with the next key.
+  _genAI = null;
+  _flash = null;
+  _pro = null;
+  logger.info(
+    `gemini: rotated API key ${prev % allKeys.length} → ${currentKeyIndex} (${allKeys.length} keys available)`
+  );
+  return true;
+}
+
 let _genAI: GoogleGenerativeAI | null = null;
 function client() {
-  if (!env.GEMINI_API_KEY) {
-    throw ApiError.badRequest('GEMINI_API_KEY not configured on the server');
-  }
-  if (!_genAI) _genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const key = currentKey();
+  if (!_genAI) _genAI = new GoogleGenerativeAI(key);
   return _genAI;
 }
 
@@ -55,6 +78,10 @@ export async function geminiJSON<T>(
   let model = requested;
   let downgraded = false;
 
+  // Also track how many keys we've tried (for multi-key rotation).
+  let keysTriedCount = 0;
+  const maxKeyRotations = allKeys.length;
+
   for (let i = 0; i <= retries; i++) {
     try {
       const result = await model.generateContent(prompt);
@@ -69,6 +96,18 @@ export async function geminiJSON<T>(
         { err: msg, status, attempt: i + 1, downgraded },
         'gemini call failed, retrying'
       );
+
+      // On quota error, try rotating to the next API key first.
+      if (quotaHit && keysTriedCount < maxKeyRotations) {
+        const rotated = rotateKey();
+        if (rotated) {
+          keysTriedCount++;
+          // Rebuild model references with new key
+          model = requested === proModel() ? proModel() : flashModel();
+          continue; // immediate retry with new key
+        }
+      }
+
       // On quota error, swap to flash for the remaining retries. Pro vs flash
       // produces lower-quality output but a result the user can use beats a
       // 502 every time.

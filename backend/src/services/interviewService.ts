@@ -16,24 +16,35 @@ import {
   type ApproachFeedbackResponse,
   type CodeEvaluationResponse,
   type GeneratedProblem,
+  type InterviewMode,
 } from '../prompts/interview.js';
 import { logger } from '../config/logger.js';
 
 interface StartInput {
   topic: string;
+  topics?: string[];
   difficulty: InterviewDifficulty;
   role?: InterviewRole;
   notes?: string;
+  mode?: InterviewMode;
+  company?: string;
 }
 
 export async function startSession(userId: string, input: StartInput) {
   const role = input.role ?? 'Generic';
+  // If `topics` is supplied, derive the canonical "topic" string from it so
+  // the existing schema (single string) stays intact.
+  const canonicalTopic =
+    input.topics && input.topics.length > 0 ? input.topics.join(' + ') : input.topic;
   const problem = await geminiJSON<GeneratedProblem>(
     problemPrompt({
-      topic: input.topic,
+      topic: canonicalTopic,
+      topics: input.topics,
       difficulty: input.difficulty,
       role,
       notes: input.notes,
+      mode: input.mode,
+      company: input.company,
     })
   );
   if (!problem?.title || !problem?.statement) {
@@ -42,7 +53,7 @@ export async function startSession(userId: string, input: StartInput) {
 
   const session = await InterviewSession.create({
     userId,
-    topic: input.topic.trim(),
+    topic: canonicalTopic.trim(),
     difficulty: input.difficulty,
     role,
     notes: (input.notes ?? '').trim(),

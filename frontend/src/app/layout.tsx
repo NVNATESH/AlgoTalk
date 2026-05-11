@@ -5,7 +5,7 @@ import { PomodoroProvider } from '@/components/pomodoro/PomodoroProvider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'LearnHub — Collaborative Learning + Competitive Programming',
+  title: 'AlgoTalk — Collaborative Learning + Competitive Programming',
   description: 'AI-powered collaborative learning, group challenges, and cross-platform CP intelligence.',
 };
 

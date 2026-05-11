@@ -74,6 +74,13 @@ export interface ContestReport {
   }>;
   predictedRatingChange: string;
   nextContestRecommendation: string;
+  resources?: Array<{
+    type: 'article' | 'video' | 'blog' | 'docs' | 'repo' | 'problem' | 'course';
+    title: string;
+    url: string;
+    topic: string;
+    why: string;
+  }>;
   generatedBy: string;
   createdAt: string;
   actualRatingChange?: number | null;

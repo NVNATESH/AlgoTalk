@@ -17,5 +17,6 @@ router.get('/stats', c.stats);
 router.get('/scheduler', c.schedulerStatus);
 router.get('/last-by-platform', c.lastByPlatform);
 router.get('/heatmap', c.heatmap);
+router.get('/sync-health', c.syncHealth);
 
 export default router;

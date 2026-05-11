@@ -186,6 +186,14 @@ export const mailer = {
       html: notificationTemplate(name, title, body, link),
     });
   },
+
+  async sendWeeklyReport(to: string, name: string, report: any) {
+    await safeSend({
+      to,
+      subject: `📈 Your weekly progress — ${report.weekStart} to ${report.weekEnd}`,
+      html: weeklyReportTemplate(name, report),
+    });
+  },
 };
 
 const wrap = (inner: string) => `
@@ -230,6 +238,48 @@ const notificationTemplate = (name: string, title: string, body: string, link?: 
   ${link ? `<p style="margin:24px 0;"><a href="${link}" style="display:inline-block;padding:10px 18px;background:linear-gradient(90deg,#8b5cf6,#06b6d4);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Open in LearnHub</a></p>` : ''}
 `);
 
+const weeklyReportTemplate = (name: string, report: any) => wrap(`
+  <h2 style="font-size:18px;margin:0 0 12px;">📈 Your Weekly Progress Report</h2>
+  <p>Hi ${escape(name)}, here's your learning summary for the week of ${report.weekStart} — ${report.weekEnd}.</p>
+  <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+    <tr>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#a78bfa;font-weight:600;">Active Goals</td>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#e5e7eb;text-align:right;">${report.goalsActive}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#10b981;font-weight:600;">Completed This Week</td>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#e5e7eb;text-align:right;">${report.goalsCompleted}</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#06b6d4;font-weight:600;">Hours Studied</td>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#e5e7eb;text-align:right;">${Math.round(report.totalMinutes / 60)}h</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#f59e0b;font-weight:600;">Best Streak</td>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#e5e7eb;text-align:right;">${report.streakBest} days 🔥</td>
+    </tr>
+    <tr>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#ec4899;font-weight:600;">Rank</td>
+      <td style="padding:8px 12px;border:1px solid #333;background:#1a1a26;color:#e5e7eb;text-align:right;">${report.rank} (${report.xpEarned} XP)</td>
+    </tr>
+  </table>
+  ${report.topGoals?.length ? `
+    <h3 style="font-size:14px;color:#a78bfa;margin:16px 0 8px;">Top Goals</h3>
+    <ul style="padding-left:16px;color:#e5e7eb;">
+      ${report.topGoals.map((g: any) => `<li>${g.icon} ${escape(g.name)} — ${g.progress}%</li>`).join('')}
+    </ul>
+  ` : ''}
+  ${report.upcomingDeadlines?.length ? `
+    <h3 style="font-size:14px;color:#f43f5e;margin:16px 0 8px;">⚠️ Upcoming Deadlines</h3>
+    <ul style="padding-left:16px;color:#e5e7eb;">
+      ${report.upcomingDeadlines.map((d: any) => `<li>${escape(d.name)} — due ${new Date(d.deadline).toLocaleDateString()} (${d.progress}%)</li>`).join('')}
+    </ul>
+  ` : ''}
+  <p style="margin:24px 0;"><a href="${process.env.CLIENT_URL ?? 'http://localhost:3000'}/dashboard" style="display:inline-block;padding:10px 18px;background:linear-gradient(90deg,#8b5cf6,#ec4899);color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">View Dashboard</a></p>
+  <p style="font-size:11px;color:#6b7280;">You're receiving this because you have active goals. Adjust notification preferences in Settings.</p>
+`);
+
 function escape(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
+

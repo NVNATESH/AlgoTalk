@@ -41,6 +41,7 @@ const problemSchema = new Schema(
     },
     tags: { type: [String], default: [], index: true },
     companyTags: { type: [String], default: [], index: true },
+    platform: { type: String, default: '', index: true }, // source platform: LeetCode, GeeksforGeeks, HackerRank, CodeChef, Codeforces, InterviewBit, etc.
 
     inputFormat: { type: String, default: '' }, // e.g. "first line: n target; second line: n integers"
     outputFormat: { type: String, default: '' },
@@ -77,6 +78,7 @@ export const problemSummary = (p: any) => ({
   difficulty: p.difficulty,
   tags: p.tags,
   companyTags: p.companyTags ?? [],
+  platform: p.platform ?? '',
   acceptanceRate:
     (p.totalSubmissions ?? 0) === 0
       ? null

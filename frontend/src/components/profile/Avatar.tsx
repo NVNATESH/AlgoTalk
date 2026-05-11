@@ -33,11 +33,12 @@ export function Avatar({
 }: {
   name: string;
   src?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }) {
   const [c1, c2] = pickPalette(name);
   const sizeClass = {
+    xs: 'h-5 w-5 text-[9px]',
     sm: 'h-8 w-8 text-xs',
     md: 'h-12 w-12 text-sm',
     lg: 'h-20 w-20 text-2xl',

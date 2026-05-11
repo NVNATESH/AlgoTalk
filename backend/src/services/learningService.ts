@@ -50,6 +50,14 @@ export async function getOrGenerateContent(
   }
 
   const { goal, mod } = await loadGoalAndModule(userId, goalId, moduleId);
+
+  // Quest-type goals have NO concepts, NO examples, NO quizzes — only problems
+  if ((goal as any).goalType === 'quest') {
+    throw ApiError.badRequest(
+      'Quest goals do not have learning content. Complete the assigned problems to progress.'
+    );
+  }
+
   const ctx = buildModuleContext(goal, mod);
 
   // run concepts + quiz in parallel

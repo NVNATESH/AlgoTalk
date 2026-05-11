@@ -120,6 +120,18 @@ export default function RoomWorkspacePage() {
     }
   };
 
+  const handleEndMeeting = async () => {
+    if (!room?.groupId) return;
+    if (!confirm('End this meeting? The workspace stays but no one can rejoin.')) return;
+    try {
+      await api(`/groups/${room.groupId}/end-meeting`, { method: 'POST', auth: true });
+      toast.success('Meeting ended');
+      router.push(`/groups/${room.groupId}`);
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : 'Could not end meeting');
+    }
+  };
+
   const handleGrant = async (targetUserId: string) => {
     if (!room) return;
     try {
@@ -247,6 +259,14 @@ export default function RoomWorkspacePage() {
                 className="btn-ghost text-sm text-accent-rose hover:bg-accent-rose/10"
               >
                 <Trash2 className="h-4 w-4" /> Delete
+              </button>
+            )}
+            {room.groupId && (
+              <button
+                onClick={handleEndMeeting}
+                className="btn-ghost text-sm text-amber-300 hover:bg-amber-500/10"
+              >
+                <LogOut className="h-4 w-4" /> End Meeting
               </button>
             )}
           </div>

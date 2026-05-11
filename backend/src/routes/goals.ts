@@ -26,6 +26,9 @@ router.patch('/:id/dates', validateBody(c.updateDatesSchema), c.updateDates);
 
 router.patch('/:id/modules/:moduleId', validateBody(c.moduleStatusSchema), c.updateModule);
 
+// Module problems with solve status
+router.get('/:id/modules/:moduleId/problems', c.moduleProblems);
+
 // Module learning content + quiz
 router.get('/:id/modules/:moduleId/content', aiLimiter, l.getContent);
 router.post('/:id/modules/:moduleId/content/regenerate', aiLimiter, l.regenerate);

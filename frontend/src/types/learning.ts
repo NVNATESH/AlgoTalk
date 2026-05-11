@@ -3,7 +3,7 @@ export type QuestionType = 'mcq_single' | 'mcq_multi' | 'fill_blank' | 'match' |
 export interface Example {
   title: string;
   explanation: string;
-  code: string;
+  code: string | Record<string, string>;
   language: string;
 }
 

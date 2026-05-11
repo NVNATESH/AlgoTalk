@@ -37,8 +37,8 @@ router.post(
   '/submission-event',
   validateBody(eventSchema),
   asyncHandler(async (req, res) => {
-    const headerToken = String(req.header('x-learnhub-token') || '').trim();
-    if (!headerToken) throw ApiError.unauthorized('Missing X-LearnHub-Token');
+    const headerToken = String(req.header('x-algotalk-token') || req.header('x-learnhub-token') || '').trim();
+    if (!headerToken) throw ApiError.unauthorized('Missing X-AlgoTalk-Token');
     const tok = await ExtensionToken.findOne({ token: headerToken, revokedAt: null });
     if (!tok) throw ApiError.unauthorized('Invalid or revoked token');
 

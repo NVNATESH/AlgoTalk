@@ -14,6 +14,13 @@ export const NOTIFICATION_TYPES = [
   'mentor_replied',
   'contest_started',
   'contest_report_ready',
+  // Automation types
+  'goal_reminder',
+  'weekly_report',
+  'ai_plan_ready',
+  'streak_alert',
+  'goal_deadline_near',
+  'admin_announcement',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

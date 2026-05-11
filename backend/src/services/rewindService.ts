@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { Submission } from '../models/Submission.js';
 import { Problem } from '../models/Problem.js';
 import { Goal } from '../models/Goal.js';
+import { ExtractedSubmission } from '../models/ExtractedSubmission.js';
 import { ApiError } from '../utils/ApiError.js';
 
 const ymd = (d: Date) => {
@@ -409,4 +410,390 @@ const LANG_DISPLAY: Record<string, string> = {
 
 function displayLang(l: string) {
   return LANG_DISPLAY[l] ?? l;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-period, multi-platform rewind (Wave D)
+// ---------------------------------------------------------------------------
+// `getRewindForYear` above is the v1 endpoint and stays unchanged. The new
+// `getRewindForRange` below answers the same question for week / month / year
+// with an additional per-platform breakdown that includes external sync data
+// (LeetCode / Codeforces / CodeChef / HackerRank / AtCoder / GFG / HackerEarth).
+// Both functions live in this file so they share the year-level helpers; the
+// new one is purely additive.
+
+export type RewindPeriod = 'week' | 'month' | 'year';
+
+export interface RewindRangePlatformStats {
+  platform: string; // 'learnhub' | 'leetcode' | ...
+  submissions: number;
+  accepted: number;
+  distinctSolved: number;
+  activeDays: number;
+  byDifficulty: { easy: number; medium: number; hard: number; unknown: number };
+  topLanguage: string | null;
+}
+
+export interface RewindRangeData {
+  period: RewindPeriod;
+  range: { start: string; end: string }; // ISO YYYY-MM-DD inclusive
+  hasData: boolean;
+  totals: {
+    submissions: number;
+    accepted: number;
+    distinctSolved: number;
+    activeDays: number;
+    byDifficulty: { easy: number; medium: number; hard: number; unknown: number };
+  };
+  // One row per platform the user submitted on during the range; learnhub is
+  // always included if any internal submissions exist.
+  byPlatform: RewindRangePlatformStats[];
+  // Daily totals for a heatmap. Sparse: only days with activity emitted, plus
+  // we emit zeros for the period boundaries so the consumer can render gaps.
+  daily: Array<{ date: string; total: number; accepted: number; byPlatform: Record<string, number> }>;
+  // Topic counts merged across platforms (extracted submissions carry their
+  // own normalized topic tags; internal submissions inherit Problem.tags).
+  topTopics: Array<{ topic: string; count: number }>;
+  byLanguage: Array<{ language: string; count: number }>;
+  // Comparison vs the *previous* equal-length window. Useful for trend arrows
+  // ("+38% vs last week"). null when there is no prior data to compare against.
+  comparison: {
+    previous: { submissions: number; accepted: number; distinctSolved: number; activeDays: number };
+    delta: { submissions: number; accepted: number; distinctSolved: number; activeDays: number };
+  } | null;
+}
+
+function startOfWeekUTC(d: Date): Date {
+  // Monday-anchored week (matches CP convention; CodeForces / AtCoder roll their contests by week).
+  const out = new Date(d);
+  out.setUTCHours(0, 0, 0, 0);
+  const day = out.getUTCDay();
+  const diff = (day + 6) % 7; // Mon=0
+  out.setUTCDate(out.getUTCDate() - diff);
+  return out;
+}
+
+function startOfMonthUTC(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
+}
+
+function startOfYearUTC(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+}
+
+function rangeFor(period: RewindPeriod, anchor: Date): { start: Date; end: Date } {
+  if (period === 'week') {
+    const start = startOfWeekUTC(anchor);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 7);
+    return { start, end };
+  }
+  if (period === 'month') {
+    const start = startOfMonthUTC(anchor);
+    const end = new Date(start);
+    end.setUTCMonth(end.getUTCMonth() + 1);
+    return { start, end };
+  }
+  // year
+  const start = startOfYearUTC(anchor);
+  const end = new Date(start);
+  end.setUTCFullYear(end.getUTCFullYear() + 1);
+  return { start, end };
+}
+
+function difficultyBucket(diff: string | null | undefined): 'easy' | 'medium' | 'hard' | 'unknown' {
+  const v = (diff ?? '').toLowerCase();
+  if (v === 'easy') return 'easy';
+  if (v === 'medium') return 'medium';
+  if (v === 'hard') return 'hard';
+  return 'unknown';
+}
+
+export async function getRewindForRange(
+  userId: string,
+  period: RewindPeriod,
+  anchor: Date = new Date()
+): Promise<RewindRangeData> {
+  const { start, end } = rangeFor(period, anchor);
+  const userObjId = new Types.ObjectId(userId);
+
+  // Pull internal + external submissions in parallel.
+  const [internal, external] = await Promise.all([
+    Submission.find({
+      userId: userObjId,
+      createdAt: { $gte: start, $lt: end },
+    })
+      .select('problemId status language createdAt')
+      .lean(),
+    ExtractedSubmission.find({
+      userId: userObjId,
+      submittedAt: { $gte: start, $lt: end },
+    })
+      .select('platform externalId problemId status language difficulty topics submittedAt count')
+      .lean(),
+  ]);
+
+  // Look up internal-problem metadata in one round trip (difficulty + tags).
+  const internalProblemIds = Array.from(
+    new Set(internal.map((s) => String(s.problemId)))
+  );
+  const internalProblems = internalProblemIds.length
+    ? await Problem.find({
+        _id: { $in: internalProblemIds.map((id) => new Types.ObjectId(id)) },
+      })
+        .select('difficulty tags')
+        .lean()
+    : [];
+  const internalProbInfo = new Map<string, { difficulty: string; tags: string[] }>();
+  for (const p of internalProblems) {
+    internalProbInfo.set(String(p._id), {
+      difficulty: p.difficulty,
+      tags: p.tags ?? [],
+    });
+  }
+
+  // Per-platform aggregator.
+  const perPlatform = new Map<string, {
+    submissions: number;
+    accepted: number;
+    activeDays: Set<string>;
+    distinctSolved: Set<string>;
+    byDifficulty: { easy: number; medium: number; hard: number; unknown: number };
+    langs: Map<string, number>;
+  }>();
+  const ensure = (platform: string) => {
+    let row = perPlatform.get(platform);
+    if (!row) {
+      row = {
+        submissions: 0,
+        accepted: 0,
+        activeDays: new Set<string>(),
+        distinctSolved: new Set<string>(),
+        byDifficulty: { easy: 0, medium: 0, hard: 0, unknown: 0 },
+        langs: new Map<string, number>(),
+      };
+      perPlatform.set(platform, row);
+    }
+    return row;
+  };
+
+  // Daily totals across all platforms.
+  const daily = new Map<string, { total: number; accepted: number; byPlatform: Record<string, number> }>();
+  const ensureDay = (key: string) => {
+    let d = daily.get(key);
+    if (!d) {
+      d = { total: 0, accepted: 0, byPlatform: {} };
+      daily.set(key, d);
+    }
+    return d;
+  };
+
+  const topicCount = new Map<string, number>();
+  const langCount = new Map<string, number>();
+
+  // Internal submissions
+  for (const s of internal) {
+    const platform = 'learnhub';
+    const row = ensure(platform);
+    const day = ymd(new Date(s.createdAt as Date));
+    row.submissions++;
+    row.activeDays.add(day);
+    row.langs.set(s.language, (row.langs.get(s.language) ?? 0) + 1);
+    langCount.set(s.language, (langCount.get(s.language) ?? 0) + 1);
+
+    const dayBucket = ensureDay(day);
+    dayBucket.total++;
+    dayBucket.byPlatform[platform] = (dayBucket.byPlatform[platform] ?? 0) + 1;
+
+    if (s.status === 'accepted') {
+      const pid = String(s.problemId);
+      row.accepted++;
+      row.distinctSolved.add(pid);
+      dayBucket.accepted++;
+
+      const info = internalProbInfo.get(pid);
+      if (info) {
+        const b = difficultyBucket(info.difficulty);
+        row.byDifficulty[b]++;
+        for (const tag of info.tags ?? []) {
+          topicCount.set(tag, (topicCount.get(tag) ?? 0) + 1);
+        }
+      } else {
+        row.byDifficulty.unknown++;
+      }
+    }
+  }
+
+  // External submissions — they already carry difficulty + topics + count.
+  for (const s of external) {
+    const platform = s.platform as string;
+    const row = ensure(platform);
+    const day = ymd(new Date(s.submittedAt as Date));
+    // Calendar-fallback rows (e.g. LeetCode hidden submissions) carry a count
+    // representing N submissions for that day. Treat each row's `count` as the
+    // weight rather than 1 so the totals match what the integration card shows.
+    const n = typeof (s as any).count === 'number' && (s as any).count > 0
+      ? (s as any).count
+      : 1;
+    row.submissions += n;
+    row.activeDays.add(day);
+    if (s.language) {
+      row.langs.set(s.language, (row.langs.get(s.language) ?? 0) + n);
+      langCount.set(s.language, (langCount.get(s.language) ?? 0) + n);
+    }
+
+    const dayBucket = ensureDay(day);
+    dayBucket.total += n;
+    dayBucket.byPlatform[platform] = (dayBucket.byPlatform[platform] ?? 0) + n;
+
+    if (s.status === 'accepted') {
+      row.accepted += n;
+      // Per-problem dedup: same problem solved twice in the window counts once.
+      // For platforms with synthesized day rows (LC calendar) the problemId is
+      // unique per (handle, day), so this still doesn't double-count days.
+      row.distinctSolved.add(`${platform}:${s.problemId}`);
+      dayBucket.accepted += n;
+
+      const b = difficultyBucket(s.difficulty);
+      row.byDifficulty[b] += n;
+      for (const tag of s.topics ?? []) {
+        topicCount.set(tag, (topicCount.get(tag) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Materialize per-platform output
+  const byPlatform: RewindRangePlatformStats[] = [];
+  for (const [platform, row] of perPlatform) {
+    let topLang: string | null = null;
+    let topLangN = 0;
+    for (const [lang, n] of row.langs) {
+      if (n > topLangN) {
+        topLangN = n;
+        topLang = lang;
+      }
+    }
+    byPlatform.push({
+      platform,
+      submissions: row.submissions,
+      accepted: row.accepted,
+      distinctSolved: row.distinctSolved.size,
+      activeDays: row.activeDays.size,
+      byDifficulty: row.byDifficulty,
+      topLanguage: topLang,
+    });
+  }
+  // Highest-volume platform first so the UI doesn't have to re-sort.
+  byPlatform.sort((a, b) => b.submissions - a.submissions);
+
+  // Daily array sorted ascending — gives the heatmap a stable order.
+  const dailyArr = Array.from(daily.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({ date, ...v }));
+
+  // Totals = sum across platforms (avoids re-walking the docs).
+  let totalSubs = 0;
+  let totalAccepted = 0;
+  const totalDifficulty = { easy: 0, medium: 0, hard: 0, unknown: 0 };
+  const distinctAcrossPlatforms = new Set<string>();
+  const totalActiveDaysSet = new Set<string>();
+  for (const row of perPlatform.values()) {
+    totalSubs += row.submissions;
+    totalAccepted += row.accepted;
+    totalDifficulty.easy += row.byDifficulty.easy;
+    totalDifficulty.medium += row.byDifficulty.medium;
+    totalDifficulty.hard += row.byDifficulty.hard;
+    totalDifficulty.unknown += row.byDifficulty.unknown;
+    for (const k of row.distinctSolved) distinctAcrossPlatforms.add(k);
+    for (const d of row.activeDays) totalActiveDaysSet.add(d);
+  }
+
+  // Comparison with previous equal-length window.
+  const periodMs = end.getTime() - start.getTime();
+  const prevStart = new Date(start.getTime() - periodMs);
+  const prevEnd = start;
+  const [prevInternal, prevExternal] = await Promise.all([
+    Submission.countDocuments({
+      userId: userObjId,
+      createdAt: { $gte: prevStart, $lt: prevEnd },
+    }),
+    ExtractedSubmission.find({
+      userId: userObjId,
+      submittedAt: { $gte: prevStart, $lt: prevEnd },
+    })
+      .select('status submittedAt count problemId platform')
+      .lean(),
+  ]);
+
+  const prevDays = new Set<string>();
+  let prevSubs = prevInternal;
+  let prevAccepted = 0;
+  const prevDistinct = new Set<string>();
+  // Internal previous-window accepts/active days.
+  if (prevInternal > 0) {
+    const prevInternalDocs = await Submission.find({
+      userId: userObjId,
+      createdAt: { $gte: prevStart, $lt: prevEnd },
+    })
+      .select('status problemId createdAt')
+      .lean();
+    for (const s of prevInternalDocs) {
+      prevDays.add(ymd(new Date(s.createdAt as Date)));
+      if (s.status === 'accepted') {
+        prevAccepted++;
+        prevDistinct.add(`learnhub:${String(s.problemId)}`);
+      }
+    }
+  }
+  for (const s of prevExternal) {
+    const n = typeof (s as any).count === 'number' && (s as any).count > 0
+      ? (s as any).count
+      : 1;
+    prevSubs += n;
+    prevDays.add(ymd(new Date(s.submittedAt as Date)));
+    if (s.status === 'accepted') {
+      prevAccepted += n;
+      prevDistinct.add(`${s.platform}:${s.problemId}`);
+    }
+  }
+
+  const comparison = prevSubs > 0
+    ? {
+        previous: {
+          submissions: prevSubs,
+          accepted: prevAccepted,
+          distinctSolved: prevDistinct.size,
+          activeDays: prevDays.size,
+        },
+        delta: {
+          submissions: totalSubs - prevSubs,
+          accepted: totalAccepted - prevAccepted,
+          distinctSolved: distinctAcrossPlatforms.size - prevDistinct.size,
+          activeDays: totalActiveDaysSet.size - prevDays.size,
+        },
+      }
+    : null;
+
+  return {
+    period,
+    range: { start: ymd(start), end: ymd(new Date(end.getTime() - 86_400_000)) },
+    hasData: totalSubs > 0,
+    totals: {
+      submissions: totalSubs,
+      accepted: totalAccepted,
+      distinctSolved: distinctAcrossPlatforms.size,
+      activeDays: totalActiveDaysSet.size,
+      byDifficulty: totalDifficulty,
+    },
+    byPlatform,
+    daily: dailyArr,
+    topTopics: Array.from(topicCount.entries())
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12),
+    byLanguage: Array.from(langCount.entries())
+      .map(([language, count]) => ({ language, count }))
+      .sort((a, b) => b.count - a.count),
+    comparison,
+  };
 }

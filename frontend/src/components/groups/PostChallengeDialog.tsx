@@ -17,6 +17,7 @@ const codingSchema = z.object({
   title: z.string().min(2).max(120),
   description: z.string().max(2000).optional(),
   points: z.coerce.number().int().min(1).max(1000),
+  deadlineHours: z.coerce.number().min(1).max(168),
   problemSlug: z.string().min(1).optional(),
   externalUrl: z.string().url().optional().or(z.literal('')),
   difficulty: z.enum(['Easy', 'Medium', 'Hard']).optional(),
@@ -27,6 +28,7 @@ const aptitudeSchema = z.object({
   title: z.string().min(2).max(120),
   description: z.string().max(2000).optional(),
   points: z.coerce.number().int().min(1).max(1000),
+  deadlineHours: z.coerce.number().min(1).max(168),
   optionA: z.string().min(1).max(300),
   optionB: z.string().min(1).max(300),
   optionC: z.string().min(1).max(300),
@@ -44,10 +46,10 @@ interface Props {
 export function PostChallengeDialog({ open, onClose, groupId, onPosted }: Props) {
   const [type, setType] = useState<ChallengeType>('coding');
   return (
-    <Modal open={open} onClose={onClose} size="lg" title="Post a 24h challenge">
+    <Modal open={open} onClose={onClose} size="lg" title="Post a challenge">
       <p className="-mt-2 mb-4 text-sm text-zinc-400">
-        Challenges expire in 24 hours. Group members earn points when they solve / answer
-        correctly.
+        Default deadline is 24 hours. Customize the deadline below. Group members earn points when
+        they solve / answer correctly.
       </p>
       <div className="mb-4 flex gap-1 rounded-xl border border-white/10 bg-white/5 p-1">
         <TypeBtn active={type === 'coding'} onClick={() => setType('coding')}>
@@ -107,7 +109,7 @@ function CodingForm({
     watch,
     formState: { errors },
   } = useForm<z.infer<typeof codingSchema>>({
-    defaultValues: { type: 'coding', points: 20 },
+    defaultValues: { type: 'coding', points: 20, deadlineHours: 24 },
   });
 
   // load internal problems
@@ -132,6 +134,7 @@ function CodingForm({
         title: parsed.data.title,
         description: parsed.data.description || undefined,
         points: parsed.data.points,
+        deadlineHours: parsed.data.deadlineHours,
       };
       if (parsed.data.problemSlug) body.problemSlug = parsed.data.problemSlug;
       if (parsed.data.externalUrl) body.externalUrl = parsed.data.externalUrl;
@@ -225,6 +228,16 @@ function CodingForm({
         error={errors.points?.message}
       />
 
+      <Field
+        label="Deadline (hours)"
+        type="number"
+        min={1}
+        max={168}
+        {...register('deadlineHours', { valueAsNumber: true })}
+        error={errors.deadlineHours?.message}
+        hint="Default 24h. Min 1h, max 7 days (168h)."
+      />
+
       <div className="flex items-center justify-end gap-3 border-t border-white/5 pt-4">
         <button type="button" onClick={onClose} className="btn-ghost">
           Cancel
@@ -254,7 +267,7 @@ function AptitudeForm({
     setValue,
     formState: { errors },
   } = useForm<z.infer<typeof aptitudeSchema>>({
-    defaultValues: { type: 'aptitude', points: 10, correctAnswer: 'A' },
+    defaultValues: { type: 'aptitude', points: 10, correctAnswer: 'A', deadlineHours: 24 },
   });
   const correct = watch('correctAnswer');
 
@@ -281,6 +294,7 @@ function AptitudeForm({
             D: parsed.data.optionD,
           },
           correctAnswer: parsed.data.correctAnswer,
+          deadlineHours: parsed.data.deadlineHours,
         },
       });
       toast.success('Challenge posted!');
@@ -338,6 +352,16 @@ function AptitudeForm({
         max={1000}
         {...register('points', { valueAsNumber: true })}
         error={errors.points?.message}
+      />
+
+      <Field
+        label="Deadline (hours)"
+        type="number"
+        min={1}
+        max={168}
+        {...register('deadlineHours', { valueAsNumber: true })}
+        error={(errors as any).deadlineHours?.message}
+        hint="Default 24h. Min 1h, max 7 days (168h)."
       />
 
       <div className="flex items-center justify-end gap-3 border-t border-white/5 pt-4">

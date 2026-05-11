@@ -18,5 +18,6 @@ router.post('/hint', aiLimiter, validateBody(pai.hintSchema), pai.hint);
 router.post('/explain', aiLimiter, validateBody(pai.explainSchema), pai.explain);
 router.post('/explain-code', aiLimiter, validateBody(pai.explainCodeSchema), pai.explainCode);
 router.post('/optimize', aiLimiter, validateBody(pai.optimizeSchema), pai.optimize);
+router.post('/upsolve', aiLimiter, validateBody(pai.upsolveSchema), pai.upsolve);
 
 export default router;

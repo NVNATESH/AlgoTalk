@@ -1,9 +1,33 @@
+export type InterviewMode =
+  | 'dsa'
+  | 'system_design'
+  | 'sql'
+  | 'frontend'
+  | 'backend'
+  | 'fullstack'
+  | 'behavioral'
+  | 'cs_fundamentals';
+
 export interface ProblemGenInput {
   topic: string;
+  topics?: string[];                  // optional multi-topic mix (DSA/CS-fundamentals modes)
   difficulty: 'Easy' | 'Medium' | 'Hard';
   role: string;
   notes?: string;
+  mode?: InterviewMode;               // default 'dsa'
+  company?: string;                   // tone the problem after a company's style
 }
+
+const MODE_INSTRUCTIONS: Record<InterviewMode, string> = {
+  dsa: 'Generate a DSA coding problem. Examples should be input/output pairs. Expected complexity refers to algorithm time/space.',
+  system_design: 'Generate a SYSTEM DESIGN scenario. The "statement" should describe a product/scale/scenario. Examples should be representative API requests or back-of-envelope numbers. Expected complexity is irrelevant — leave as "—".',
+  sql: 'Generate a SQL problem. Statement describes the schema (with CREATE TABLE snippets in the markdown) plus the question. Examples are SQL query → result table. Expected complexity should describe expected query plan e.g. "single-pass, indexed".',
+  frontend: 'Generate a FRONTEND coding question (React/JS). Statement describes UI behavior + constraints. Examples may show desired DOM behavior or interaction.',
+  backend: 'Generate a BACKEND/API design question (Node/Java/Python). Statement describes the endpoint/contract. Examples are request → response pairs.',
+  fullstack: 'Generate a FULLSTACK feature design question — frontend + backend boundaries explicit. Examples show the user-visible behavior + API contract.',
+  behavioral: 'Generate a BEHAVIORAL/STAR-format question for the role. Statement is the prompt; Examples should be 1-2 short reference answers framing what a strong vs weak response looks like (clearly labeled).',
+  cs_fundamentals: 'Generate a CS FUNDAMENTALS short-answer question (DBMS/OS/CN/OOP). Statement asks the question; Examples show a strong sample answer + a common mistake.',
+};
 
 export interface GeneratedProblem {
   title: string;
@@ -15,21 +39,35 @@ export interface GeneratedProblem {
 }
 
 export function problemPrompt(input: ProblemGenInput): string {
+  const mode: InterviewMode = input.mode ?? 'dsa';
+  const topicLine =
+    input.topics && input.topics.length > 1
+      ? `Topics to combine: ${input.topics.join(' + ')}`
+      : `Topic: ${input.topic}`;
+  const companyLine = input.company
+    ? `- Mimic the typical interview style of: ${input.company}`
+    : '';
+
   return `You are an experienced technical interviewer. Generate ONE original interview problem.
 
 CONTEXT:
-- Topic: ${input.topic}
+- ${topicLine}
 - Difficulty: ${input.difficulty}
 - Role: ${input.role}
+- Mode: ${mode}
+${companyLine}
 ${input.notes ? `- User notes: ${input.notes}` : ''}
+
+MODE-SPECIFIC RULES:
+${MODE_INSTRUCTIONS[mode]}
 
 QUALITY RULES:
 - Don't reuse famous LeetCode titles. Make it original but realistic for this role/difficulty.
 - The problem must be solvable in under 30 minutes for the target role.
 - The statement uses markdown (headings, lists, code if needed). Tone: clear, no fluff.
-- "constraints" lists numeric bounds in plain text (e.g. "1 ≤ n ≤ 10^5").
-- 2 examples with input/output and a one-sentence explanation.
-- "expectedComplexity" is the target the interviewer is hoping the candidate hits.
+- "constraints" lists numeric/structural bounds in plain text (e.g. "1 ≤ n ≤ 10^5", or "schema: 3 tables, max 1M rows").
+- 2 examples with input/output and a one-sentence explanation. (For behavioral/cs_fundamentals modes, examples are sample answers — clearly labeled "strong:" / "weak:".)
+- "expectedComplexity" is the target the interviewer is hoping the candidate hits. Use "—" for modes where complexity doesn't apply.
 - "starterHint" is ONE sentence — a vague nudge if they're stuck. Never reveals the algorithm.
 
 Return STRICT JSON (no fences):

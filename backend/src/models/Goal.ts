@@ -1,5 +1,18 @@
 import { Schema, model, type InferSchemaType, type Model, Types } from 'mongoose';
 
+const resourceSchema = new Schema(
+  {
+    title: { type: String, required: true },
+    url: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ['youtube', 'docs', 'blog', 'github', 'practice', 'cheatsheet', 'pdf', 'article'],
+      default: 'docs',
+    },
+  },
+  { _id: false }
+);
+
 const moduleSchema = new Schema(
   {
     moduleId: { type: String, required: true },
@@ -15,6 +28,7 @@ const moduleSchema = new Schema(
     estimatedHours: { type: Number, default: 1 },
     actualMinutes: { type: Number, default: 0 },
     quizScore: { type: Number, default: null },
+    problemSlugs: { type: [String], default: [] },
     problemsSolved: { type: Number, default: 0 },
     completedAt: { type: Date, default: null },
     dueDate: { type: Date, default: null },
@@ -22,11 +36,19 @@ const moduleSchema = new Schema(
   { _id: false }
 );
 
+export const GOAL_TYPES = ['custom', 'recommended', 'company_prep', 'quest', 'ai_generated'] as const;
+export type GoalType = (typeof GOAL_TYPES)[number];
+
+export const GOAL_CATEGORIES = [
+  'dsa', 'system_design', 'sql', 'dbms', 'fullstack', 'ai_ml', 'aptitude', 'company', 'other',
+] as const;
+export type GoalCategory = (typeof GOAL_CATEGORIES)[number];
+
 const goalSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 
-    name: { type: String, required: true, trim: true, maxlength: 80 },
+    name: { type: String, required: true, trim: true, maxlength: 120 },
     icon: { type: String, default: '🎯' },
     description: { type: String, default: '' },
 
@@ -37,6 +59,42 @@ const goalSchema = new Schema(
       default: 'Intermediate',
     },
     priority: { type: String, enum: ['P0', 'P1', 'P2'], default: 'P1' },
+
+    // ── Unified goal typing ──────────────────────────────────────────
+    goalType: {
+      type: String,
+      enum: GOAL_TYPES,
+      default: 'custom',
+      index: true,
+    },
+    category: {
+      type: String,
+      enum: GOAL_CATEGORIES,
+      default: 'other',
+      index: true,
+    },
+    companyTarget: { type: String, default: null },   // e.g. "Google"
+    roleTarget: { type: String, default: null },      // e.g. "SDE-1"
+
+    // ── Quest fields ─────────────────────────────────────────────────
+    questOrder: { type: Number, default: 0 },
+    isLocked: { type: Boolean, default: false },
+    prerequisiteGoalId: { type: Schema.Types.ObjectId, ref: 'Goal', default: null },
+
+    // ── AI plan provenance ────────────────────────────────────────────
+    aiPlanSource: { type: String, default: null },
+    sourcePrompt: { type: String, default: '' },
+
+    // ── Resources ────────────────────────────────────────────────────
+    resources: { type: [resourceSchema], default: [] },
+
+    // ── Gamification ─────────────────────────────────────────────────
+    xpReward: { type: Number, default: 100 },
+    badgeKey: { type: String, default: null },
+
+    // ── Template / public goals ──────────────────────────────────────
+    isPublic: { type: Boolean, default: false, index: true },
+    templateId: { type: Schema.Types.ObjectId, ref: 'Goal', default: null },
 
     modules: { type: [moduleSchema], default: [] },
 
@@ -73,6 +131,9 @@ const goalSchema = new Schema(
 goalSchema.index({ userId: 1, status: 1 });
 goalSchema.index({ userId: 1, isFocus: 1 });
 goalSchema.index({ userId: 1, deadline: 1 });
+goalSchema.index({ userId: 1, goalType: 1 });
+goalSchema.index({ isPublic: 1, goalType: 1 });
+goalSchema.index({ companyTarget: 1 });
 
 export type GoalDoc = InferSchemaType<typeof goalSchema> & { _id: Types.ObjectId };
 
@@ -86,6 +147,24 @@ export const goalToJSON = (g: any) => ({
   topic: g.topic,
   difficulty: g.difficulty,
   priority: g.priority,
+  goalType: g.goalType ?? 'custom',
+  category: g.category ?? 'other',
+  companyTarget: g.companyTarget ?? null,
+  roleTarget: g.roleTarget ?? null,
+  questOrder: g.questOrder ?? 0,
+  isLocked: g.isLocked ?? false,
+  prerequisiteGoalId: g.prerequisiteGoalId ? String(g.prerequisiteGoalId) : null,
+  aiPlanSource: g.aiPlanSource ?? null,
+  sourcePrompt: g.sourcePrompt ?? '',
+  resources: (g.resources ?? []).map((r: any) => ({
+    title: r.title,
+    url: r.url,
+    type: r.type ?? 'docs',
+  })),
+  xpReward: g.xpReward ?? 100,
+  badgeKey: g.badgeKey ?? null,
+  isPublic: g.isPublic ?? false,
+  templateId: g.templateId ? String(g.templateId) : null,
   modules: (g.modules ?? []).map((m: any) => ({
     moduleId: m.moduleId,
     title: m.title,
@@ -96,6 +175,7 @@ export const goalToJSON = (g: any) => ({
     estimatedHours: m.estimatedHours,
     actualMinutes: m.actualMinutes,
     quizScore: m.quizScore,
+    problemSlugs: m.problemSlugs ?? [],
     problemsSolved: m.problemsSolved,
     completedAt: m.completedAt,
     dueDate: m.dueDate,

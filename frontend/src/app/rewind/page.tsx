@@ -20,9 +20,14 @@ import { AppShell } from '@/components/AppShell';
 import { MonthChart } from '@/components/rewind/MonthChart';
 import { StoryMode } from '@/components/rewind/StoryMode';
 import { AiInsightsPanel } from '@/components/rewind/AiInsights';
+import { PlatformDashboards } from '@/components/rewind/PlatformDashboards';
+import { TopicMasteryList } from '@/components/analyzer/TopicMasteryList';
+import { PeakHoursHeatmap } from '@/components/analyzer/PeakHoursHeatmap';
+import { RatingHistogram } from '@/components/analyzer/RatingHistogram';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/stores/authStore';
 import type { RewindData, RewindInsights, RewindInsightsResult } from '@/types/rewind';
+import type { RewindDashboardResponse } from '@/types/platformDashboard';
 import { cn } from '@/lib/utils';
 
 export default function RewindPage() {
@@ -38,6 +43,24 @@ export default function RewindPage() {
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
   const [storyOpen, setStoryOpen] = useState(false);
+
+  // Async-loaded multi-platform dashboard (per #10) so the year hero renders
+  // immediately while heavier analytics stream in.
+  const [dash, setDash] = useState<RewindDashboardResponse | null>(null);
+  const [dashLoading, setDashLoading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setDashLoading(true);
+    api<RewindDashboardResponse>('/rewind/dashboard', { auth: true })
+      .then((r) => !cancelled && setDash(r))
+      .catch(() => {
+        // Silent — the rest of the page still works without the dashboard panel.
+      })
+      .finally(() => !cancelled && setDashLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Fetch rewind data when year changes
   useEffect(() => {
@@ -252,6 +275,81 @@ export default function RewindPage() {
               )}
             </section>
           </div>
+
+          {/* Platform-wide dashboards (centralized historical analytics — #10) */}
+          <section className="mb-6">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <div>
+                <h3 className="font-display text-lg font-semibold">Connected platforms</h3>
+                <p className="text-xs text-zinc-500">
+                  Cross-platform analytics for every handle you've synced.
+                </p>
+              </div>
+              <a href="/integrations" className="link-accent text-xs">
+                Manage integrations →
+              </a>
+            </div>
+            {dashLoading ? (
+              <div className="glass flex items-center justify-center p-8">
+                <Loader2 className="h-5 w-5 animate-spin text-accent-violet" />
+              </div>
+            ) : dash ? (
+              <PlatformDashboards platforms={dash.platforms} />
+            ) : null}
+          </section>
+
+          {/* Topic mastery + Peak hours (lazy — only render when dash is ready) */}
+          {dash?.overview && (
+            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <section className="glass p-6 lg:col-span-2">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-display text-lg font-semibold">Topic mastery</h3>
+                    <p className="text-xs text-zinc-500">
+                      Coverage × acceptance × recent trend across every platform.
+                    </p>
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {dash.overview.topicMastery.length} topic
+                    {dash.overview.topicMastery.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <TopicMasteryList topics={dash.overview.topicMastery} />
+              </section>
+              <section className="glass p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-display text-base font-semibold">Submission heatmap</h3>
+                    <p className="text-[11px] text-zinc-500">Day-of-week × hour activity grid.</p>
+                  </div>
+                  <Zap className="h-4 w-4 text-accent-violet" />
+                </div>
+                <PeakHoursHeatmap
+                  grid={dash.overview.peakHours}
+                  max={dash.overview.peakHourMax}
+                  best={dash.overview.bestHourBucket}
+                />
+              </section>
+            </div>
+          )}
+
+          {/* CF rating histogram (only renders if there's CF data) */}
+          {dash?.overview?.ratingDistribution && (
+            <section className="glass mb-6 p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="font-display text-lg font-semibold">
+                    Codeforces rating distribution
+                  </h3>
+                  <p className="text-xs text-zinc-500">
+                    Solved (filled) vs attempted (faded) bucketed by problem rating · 100-pt bins.
+                  </p>
+                </div>
+                <Target className="h-5 w-5 text-accent-violet" />
+              </div>
+              <RatingHistogram distribution={dash.overview.ratingDistribution} />
+            </section>
+          )}
 
           {/* Milestones */}
           <section className="glass p-6">

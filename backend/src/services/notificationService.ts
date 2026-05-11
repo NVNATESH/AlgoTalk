@@ -8,13 +8,31 @@ import { mailer } from './mailer.js';
 import { fanoutWebhook } from './webhookService.js';
 
 // Notification types that warrant a real email (not just an in-app toast).
-// Keep this conservative — every entry here is one extra email in the user's
-// inbox per occurrence. High-signal lifecycle events only.
+// Every entry here is one extra email in the user's inbox per occurrence —
+// keep the list conservative and let users opt out per-type via
+// `preferences.emailNotificationPrefs`.
+//
+// Tier 1 — always emailed by default for verified users (set false in prefs to opt out)
+// Tier 2 — only emailed when priority='critical' (still in-app for medium/high)
+//
+// Wave E expansion: contest_started, sync_failed, mentor_replied, group_joined.
+// Auth-flow emails (verification, password reset, password changed) are sent
+// directly by authService and do NOT go through here — they don't have a
+// matching NotificationType because they're transactional, not pings.
 const EMAIL_WORTHY_TYPES = new Set<NotificationType>([
   'goal_completed',
   'badge_earned',
   'challenge_won',
   'contest_report_ready',
+  // Wave E additions:
+  'contest_started',     // remind users their registered contest is starting
+  'sync_failed',         // surface platform extraction failures by email
+  'mentor_replied',      // AI review / mentor response ready
+  'group_joined',        // team / group invite accepted
+  // Automation additions:
+  'weekly_report',       // weekly progress summary
+  'ai_plan_ready',       // AI-generated plan notification
+  'goal_deadline_near',  // deadline approaching warning
 ]);
 
 /**
@@ -169,7 +187,18 @@ async function sendEmailFor(userId: string, input: EmitInput): Promise<void> {
   if (!u) return;
   if (!u.isVerified) return; // don't email unverified accounts
   const prefs: any = u.preferences ?? {};
-  if (prefs.emailNotifications === false) return; // explicit opt-out
+  if (prefs.emailNotifications === false) return; // global email opt-out
+
+  // Per-type email opt-out. Independent of `notificationPrefs` so a user can
+  // keep the in-app ping but skip the inbox.
+  const perTypeEmail = (prefs.emailNotificationPrefs ?? {}) as Record<string, unknown>;
+  if (
+    Object.prototype.hasOwnProperty.call(perTypeEmail, input.type) &&
+    perTypeEmail[input.type] === false
+  ) {
+    return;
+  }
+
   const link = input.link
     ? input.link.startsWith('http')
       ? input.link
@@ -206,6 +235,18 @@ function defaultIconFor(type: NotificationType): string {
       return '🏁';
     case 'contest_report_ready':
       return '📊';
+    case 'goal_reminder':
+      return '⏰';
+    case 'weekly_report':
+      return '📈';
+    case 'ai_plan_ready':
+      return '🤖';
+    case 'streak_alert':
+      return '🔥';
+    case 'goal_deadline_near':
+      return '⚠️';
+    case 'admin_announcement':
+      return '📢';
     default:
       return '🔔';
   }

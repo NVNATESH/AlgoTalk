@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import { Brain, Code2, Eye, Globe, LogOut, LayoutDashboard, Mic, Settings, Sparkles, Trophy, Users, User as UserIcon } from 'lucide-react';
+import { Brain, Code2, Eye, Globe, LogOut, Mic, Settings, ShieldCheck, Target, Trophy, User as UserIcon } from 'lucide-react';
 import { useAuth } from '@/stores/authStore';
 import { useUi } from '@/stores/uiStore';
 import { NotificationBell } from '@/components/NotificationBell';
@@ -42,73 +42,91 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
             <Link
               href="/dashboard"
-              className="font-display text-xl font-bold gradient-text"
+              className="flex items-center gap-2 font-display text-xl font-bold gradient-text"
               aria-label="Home"
             >
-              {/* Brand mark only — name removed per request. */}
               <span className="inline-block h-5 w-5 rounded-md bg-gradient-to-br from-accent-violet to-accent-fuchsia" />
+              <span className="hidden sm:inline">AlgoTalk</span>
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
-              <NavLink href="/dashboard" active={pathname === '/dashboard'}>
-                <LayoutDashboard className="h-4 w-4" /> Dashboard
-              </NavLink>
-              <NavLink
-                href="/problems"
-                active={
-                  (pathname?.startsWith('/problems') ?? false) ||
-                  (pathname?.startsWith('/solve') ?? false)
-                }
-              >
-                <Code2 className="h-4 w-4" /> Problems
-              </NavLink>
-              <NavLink
-                href="/groups"
-                active={pathname?.startsWith('/groups') ?? false}
-              >
-                <Trophy className="h-4 w-4" /> Groups
-              </NavLink>
-              <NavLink
-                href="/contests"
-                active={pathname?.startsWith('/contests') ?? false}
-              >
-                <Trophy className="h-4 w-4" /> Contests
-              </NavLink>
-              <NavLink
-                href="/interview"
-                active={pathname?.startsWith('/interview') ?? false}
-              >
-                <Mic className="h-4 w-4" /> Interview
-              </NavLink>
-              <NavLink
-                href="/rooms"
-                active={pathname?.startsWith('/rooms') ?? false}
-              >
-                <Users className="h-4 w-4" /> Rooms
-              </NavLink>
-              <NavLink
-                href="/analyzer"
-                active={pathname?.startsWith('/analyzer') ?? false}
-              >
-                <Brain className="h-4 w-4" /> Analyzer
-              </NavLink>
-              <NavLink
-                href="/integrations"
-                active={pathname?.startsWith('/integrations') ?? false}
-              >
-                <Globe className="h-4 w-4" /> Sync
-              </NavLink>
-              <NavLink
-                href="/rewind"
-                active={pathname?.startsWith('/rewind') ?? false}
-              >
-                <Sparkles className="h-4 w-4" /> Rewind
-              </NavLink>
-              <NavLink
-                href={`/profile/${user.username}`}
-                active={pathname?.startsWith('/profile') ?? false}
-              >
-                <UserIcon className="h-4 w-4" /> Profile
-              </NavLink>
+              {user.role === 'admin' ? (
+                <>
+                  <NavLink
+                    href={`/profile/${user.username}`}
+                    active={pathname?.startsWith('/profile') ?? false}
+                  >
+                    <UserIcon className="h-4 w-4" /> Profile
+                  </NavLink>
+                  <NavLink
+                    href="/admin"
+                    active={pathname?.startsWith('/admin') ?? false}
+                  >
+                    <ShieldCheck className="h-4 w-4" /> Admin
+                  </NavLink>
+                </>
+              ) : (
+                <>
+                  <NavLink
+                    href="/dashboard"
+                    active={
+                      pathname === '/dashboard' ||
+                      (pathname?.startsWith('/goals') ?? false) ||
+                      (pathname?.startsWith('/quests') ?? false) ||
+                      (pathname?.startsWith('/recommendations') ?? false)
+                    }
+                  >
+                    <Target className="h-4 w-4" /> Goals
+                  </NavLink>
+                  <NavLink
+                    href="/problems"
+                    active={
+                      (pathname?.startsWith('/problems') ?? false) ||
+                      (pathname?.startsWith('/solve') ?? false)
+                    }
+                  >
+                    <Code2 className="h-4 w-4" /> Problems
+                  </NavLink>
+                  <NavLink
+                    href="/groups"
+                    active={pathname?.startsWith('/groups') ?? false}
+                  >
+                    <Trophy className="h-4 w-4" /> Groups
+                  </NavLink>
+                  <NavLink
+                    href="/contests"
+                    active={pathname?.startsWith('/contests') ?? false}
+                  >
+                    <Trophy className="h-4 w-4" /> Contests
+                  </NavLink>
+                  <NavLink
+                    href="/interview"
+                    active={pathname?.startsWith('/interview') ?? false}
+                  >
+                    <Mic className="h-4 w-4" /> Interview
+                  </NavLink>
+                  <NavLink
+                    href="/analyzer"
+                    active={pathname?.startsWith('/analyzer') ?? false}
+                  >
+                    <Brain className="h-4 w-4" /> Analyzer
+                  </NavLink>
+                  <NavLink
+                    href="/integrations"
+                    active={pathname?.startsWith('/integrations') ?? false}
+                  >
+                    <Globe className="h-4 w-4" /> Sync
+                  </NavLink>
+                  <NavLink
+                    href={`/profile/${user.username}`}
+                    active={
+                      (pathname?.startsWith('/profile') ?? false) ||
+                      (pathname?.startsWith('/rewind') ?? false)
+                    }
+                  >
+                    <UserIcon className="h-4 w-4" /> Profile
+                  </NavLink>
+                </>
+              )}
             </nav>
             <div className="flex items-center gap-2">
               <NotificationBell />

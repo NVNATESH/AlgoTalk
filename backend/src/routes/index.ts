@@ -18,11 +18,16 @@ import linksRoutes from './links.js';
 import extensionRoutes from './extension.js';
 import webhookRoutes from './webhooks.js';
 import sessionRoutes from './sessions.js';
+import adminRoutes from './admin.js';
+import mixedPracticeRoutes from './mixedPractice.js';
+import recommendedRoutes from './recommended.js';
+import reportRoutes from './reports.js';
 
 const router = Router();
 
 router.get('/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 router.use('/auth', authRoutes);
+router.use('/goals', recommendedRoutes); // Must be before goalRoutes — /recommended, /quests, /company/:company
 router.use('/goals', goalRoutes);
 router.use('/ai', aiRoutes);
 router.use('/problems', problemRoutes);
@@ -41,5 +46,8 @@ router.use('/links', linksRoutes);
 router.use('/extension', extensionRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/sessions', sessionRoutes);
+router.use('/admin', adminRoutes);
+router.use('/mixed-practice', mixedPracticeRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

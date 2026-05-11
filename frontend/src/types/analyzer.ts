@@ -46,6 +46,7 @@ export interface AnalyzerOverview {
   byLanguage: Array<{ language: string; count: number; accepted: number; acceptanceRate: number }>;
   attemptedProblems: number;
   unattempted: Array<{ slug: string; title: string; difficulty: string; tags: string[] }>;
+  unattemptedTotal: number;
   ratingDistribution: RatingDistribution | null;
 }
 

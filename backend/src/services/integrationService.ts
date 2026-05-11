@@ -8,6 +8,7 @@ import {
 import { ExtractedSubmission, extractedToJSON } from '../models/ExtractedSubmission.js';
 import { ApiError } from '../utils/ApiError.js';
 import { logger } from '../config/logger.js';
+import { invalidateAnalyzerCache } from './analyzerService.js';
 import {
   fetchLeetCodeProfile,
   fetchLeetCodeRecentSubmissions,
@@ -81,6 +82,7 @@ export async function connect(
     integration.lastSyncError = '';
     integration.syncCount = (integration.syncCount ?? 0) + 1;
     integration.submissionCount = result.totalAfterSync;
+    integration.solvedCount = result.solvedCount;
     await integration.save();
   } catch (err) {
     integration.lastSyncStatus = 'failed';
@@ -119,6 +121,7 @@ export async function manualSync(userId: string, platform: Platform) {
     integration.lastSyncError = '';
     integration.syncCount = (integration.syncCount ?? 0) + 1;
     integration.submissionCount = result.totalAfterSync;
+    integration.solvedCount = result.solvedCount;
     await integration.save();
 
     // Notify only when there's actually something new
@@ -139,6 +142,7 @@ export async function manualSync(userId: string, platform: Platform) {
       integration: integrationToJSON(integration.toObject()),
       newSubmissions: result.inserted,
       total: result.totalAfterSync,
+      solvedCount: result.solvedCount,
     };
   } catch (err) {
     integration.lastSyncAt = new Date();
@@ -168,11 +172,12 @@ async function runSync(
   platform: Platform,
   handle: string,
   userId: string
-): Promise<{ inserted: number; totalAfterSync: number }> {
+): Promise<{ inserted: number; totalAfterSync: number; solvedCount: number }> {
   const submissions = await fetchSubmissions(platform, handle);
   if (submissions.length === 0) {
     const total = await ExtractedSubmission.countDocuments({ integrationId });
-    return { inserted: 0, totalAfterSync: total };
+    const solvedCount = await computeSolvedCount(integrationId, platform, handle);
+    return { inserted: 0, totalAfterSync: total, solvedCount };
   }
 
   // Bulk upsert by (userId, platform, externalId)
@@ -213,8 +218,91 @@ async function runSync(
     throw new ApiError(500, 'Failed to persist extracted submissions');
   }
 
+  if (inserted > 0) invalidateAnalyzerCache(userId);
+
   const total = await ExtractedSubmission.countDocuments({ integrationId });
-  return { inserted, totalAfterSync: total };
+  const solvedCount = await computeSolvedCount(integrationId, platform, handle);
+  return { inserted, totalAfterSync: total, solvedCount };
+}
+
+/**
+ * Authoritative count of distinct *solved* problems for an integration.
+ *
+ * Why two paths:
+ *   - Codeforces / CodeChef / AtCoder / HackerEarth expose their full
+ *     submission history publicly, so the local cache (count of unique
+ *     problemId where status='accepted') is exact and we trust it.
+ *   - LeetCode / GFG / HackerRank gate per-problem enumeration behind login
+ *     (LC) or have a partial public surface (HR/GFG). Their *profile pages*
+ *     however expose the headline "X problems solved" number — we treat that
+ *     as the source of truth and use the local distinct count only as a
+ *     lower-bound fallback if the profile read failed.
+ *
+ * Both are computed and we keep the larger — so an integration that has a
+ * full local cache AND a profile total will never report less than either.
+ */
+async function computeSolvedCount(
+  integrationId: Types.ObjectId,
+  platform: Platform,
+  handle: string
+): Promise<number> {
+  // Local: distinct accepted problemIds in the cache. Aggregation runs in Mongo
+  // so we don't pull thousands of docs into Node just to count.
+  const localAgg = await ExtractedSubmission.aggregate<{ _id: null; n: number }>([
+    { $match: { integrationId, status: 'accepted' } },
+    { $group: { _id: '$problemId' } },
+    { $count: 'n' },
+  ]);
+  const localDistinct = localAgg[0]?.n ?? 0;
+
+  // Profile-reported total (best-effort; failures fall through to local).
+  let profileTotal = 0;
+  try {
+    profileTotal = await fetchProfileSolvedTotal(platform, handle);
+  } catch (err) {
+    logger.debug(
+      { err: (err as Error).message, platform, handle },
+      'profile-total fetch failed; falling back to local distinct count',
+    );
+  }
+
+  return Math.max(localDistinct, profileTotal);
+}
+
+async function fetchProfileSolvedTotal(platform: Platform, handle: string): Promise<number> {
+  switch (platform) {
+    case 'leetcode': {
+      // `acSubmissionNum.All` (totalSolved) is the headline number on the LC
+      // profile — authoritative even when recentAcSubmissionList is hidden.
+      const p = await fetchLeetCodeProfile(handle);
+      return p.totalSolved ?? 0;
+    }
+    case 'gfg': {
+      // GFG's Next.js JSON exposes total_problems_solved directly.
+      const p = await fetchGfgProfile(handle);
+      return p.totalSolved ?? 0;
+    }
+    case 'hackerrank': {
+      // HR doesn't expose a single "solved" total — sum per-track solved
+      // counts from the scores endpoint (already fetched on profile read).
+      const p = await fetchHackerRankProfile(handle);
+      return (p.scores ?? []).reduce(
+        (sum, s) => sum + (typeof s.solvedCount === 'number' ? s.solvedCount : 0),
+        0,
+      );
+    }
+    case 'hackerearth': {
+      const p = await fetchHackerEarthProfile(handle);
+      return p.totalSolved ?? 0;
+    }
+    // For platforms with full enumerable history, the local distinct count IS
+    // the authoritative number — return 0 so Math.max picks local.
+    case 'codeforces':
+    case 'codechef':
+    case 'atcoder':
+    default:
+      return 0;
+  }
 }
 
 async function fetchProfile(platform: Platform, handle: string) {
@@ -227,7 +315,14 @@ async function fetchProfile(platform: Platform, handle: string) {
         avatarUrl: p.avatar,
         rating: p.ranking,
         rank: p.ranking ? `Rank #${p.ranking.toLocaleString()}` : '',
-        extra: { byDifficulty: p.byDifficulty, totalSolved: p.totalSolved },
+        extra: {
+          byDifficulty: p.byDifficulty,
+          totalSolved: p.totalSolved,
+          tagCounts: p.tagCounts,
+          activeYears: p.activeYears,
+          streak: p.streak,
+          totalActiveDays: p.totalActiveDays,
+        },
       };
     }
     case 'codeforces': {
@@ -249,7 +344,12 @@ async function fetchProfile(platform: Platform, handle: string) {
         avatarUrl: p.avatarUrl,
         rating: p.rating,
         rank: p.rank || p.stars,
-        extra: { maxRating: p.maxRating, stars: p.stars },
+        extra: {
+          maxRating: p.maxRating,
+          stars: p.stars,
+          countryRank: p.countryRank,
+          globalRank: p.globalRank,
+        },
       };
     }
     case 'hackerrank': {
@@ -260,7 +360,13 @@ async function fetchProfile(platform: Platform, handle: string) {
         avatarUrl: p.avatarUrl,
         rating: p.rating,
         rank: p.rank,
-        extra: {},
+        extra: {
+          totalStars: p.totalStars,
+          badges: p.badges,
+          scores: p.scores,
+          certificationCount: p.certificationCount,
+          certifications: p.certifications,
+        },
       };
     }
     case 'atcoder': {
@@ -310,21 +416,25 @@ async function fetchSubmissions(platform: Platform, handle: string) {
       // every active day. Either way the per-call limit isn't the bottleneck.
       return fetchLeetCodeRecentSubmissions(handle, 50);
     case 'codeforces':
-      // 5000 covers the deepest active CF careers (most users have <2000
-      // submissions; the fetcher pages internally and stops on first short
-      // page). Bumped from 200 so users with long histories sync fully.
-      return fetchCodeforcesSubmissions(handle, 5000);
+      // CF API permits ~10k entries per call; we page internally in 1000s and
+      // early-stop on a short page. 50000 covers anyone alive — only the very
+      // top of the rating curve has more than that, and the loop terminates
+      // long before the cap for everyone else.
+      return fetchCodeforcesSubmissions(handle, 50000);
     case 'codechef':
-      // 100 pages × ~10 rows = ~1000 most recent submissions. Internal early-
-      // stop on dup ids / empty page kicks in well before the cap for most
-      // users.
-      return fetchCodeChefRecent(handle, 100);
+      // 1000 pages × ~10 rows each. CodeChef self-reports `max_page` and the
+      // loop early-stops there, so this is a high safety ceiling rather than
+      // an actual fetch volume — typical users finish in 10–30 pages.
+      return fetchCodeChefRecent(handle, 1000);
     case 'hackerrank':
-      return fetchHackerRankRecent(handle, 50);
+      // 5000 paginated via offset; HR deprecated the deep submission feed
+      // for many handles, so the loop usually terminates well before the cap.
+      // Per-track scores + badges still populate via fetchProfile regardless.
+      return fetchHackerRankRecent(handle, 5000);
     case 'atcoder':
-      // AtCoder via Kenkoooo returns one row per submission; bump for users
-      // with deep histories.
-      return fetchAtCoderSubmissions(handle, 5000);
+      // AtCoder via Kenkoooo returns one row per submission. 50k beats the
+      // deepest known competitive-programmer histories.
+      return fetchAtCoderSubmissions(handle, 50000);
     case 'gfg':
       return fetchGfgRecent(handle);
     case 'hackerearth':
@@ -381,6 +491,9 @@ export async function getLastSubmissionPerPlatform(userId: string) {
       lastSyncAt: i.lastSyncAt ? new Date(i.lastSyncAt).toISOString() : null,
       submissionCount: row?.totalCount ?? 0,
       acceptedCount: row?.acceptedCount ?? 0,
+      // Headline stat for the integration card. Distinct accepted problems —
+      // matches what each platform displays as the user's "solved" total.
+      solvedCount: i.solvedCount ?? 0,
       lastSubmission: last
         ? {
             problemId: last.problemId,
@@ -560,6 +673,131 @@ export interface ExtractionStats {
   topTopics: Array<{ topic: string; count: number }>;
   byLanguage: Array<{ language: string; count: number }>;
   total: number;
+}
+
+/**
+ * Platform-level summary used by the centralized Rewind dashboard. For each
+ * connected platform we surface:
+ *   - integration handle + last sync timestamp + active flag
+ *   - distinct accepted count
+ *   - difficulty distribution (Easy/Medium/Hard) — handles platforms where the
+ *     extractor labels difficulty (LC) and those where rating buckets stand in (CF)
+ *   - last-active timestamp (most recent accepted submission)
+ *   - top 5 topics from accepted submissions
+ *   - rating progression for CF (snapshot of recent solves)
+ */
+export interface PlatformDashboardEntry {
+  platform: Platform;
+  handle: string;
+  isActive: boolean;
+  lastSyncAt: string | null;
+  lastSyncStatus: string | null;
+  lastSolvedAt: string | null;
+  distinctSolved: number;
+  submissions: number;
+  difficulty: { easy: number; medium: number; hard: number; unknown: number };
+  topTopics: Array<{ topic: string; count: number }>;
+  recentRatings: Array<{ submittedAt: string; rating: number; problemId: string }>;
+  currentStreakDays: number;
+}
+
+export async function getPlatformDashboard(userId: string): Promise<PlatformDashboardEntry[]> {
+  const integrations = await Integration.find({ userId }).lean();
+  if (integrations.length === 0) return [];
+
+  const docs = await ExtractedSubmission.find({ userId })
+    .select('platform status difficulty topics submittedAt problemId rating')
+    .lean();
+
+  // Group docs by platform first so we don't scan O(n*p) times.
+  const byPlatform = new Map<string, typeof docs>();
+  for (const d of docs) {
+    const arr = byPlatform.get(d.platform) ?? [];
+    arr.push(d);
+    byPlatform.set(d.platform, arr);
+  }
+
+  const out: PlatformDashboardEntry[] = [];
+  for (const integ of integrations as any[]) {
+    const platform = integ.platform as Platform;
+    const list = byPlatform.get(platform) ?? [];
+    const distinctAccepted = new Set<string>();
+    const difficulty = { easy: 0, medium: 0, hard: 0, unknown: 0 };
+    const topicAccepted = new Map<string, number>();
+    let lastSolvedAt: Date | null = null;
+    const recentRatings: Array<{ submittedAt: string; rating: number; problemId: string }> = [];
+    let submissions = 0;
+
+    for (const d of list as any[]) {
+      const n = typeof d.count === 'number' && d.count > 0 ? d.count : 1;
+      submissions += n;
+      if (d.status === 'accepted') {
+        if (!distinctAccepted.has(d.problemId)) {
+          distinctAccepted.add(d.problemId);
+          const key = (d.difficulty as 'easy' | 'medium' | 'hard' | 'unknown') ?? 'unknown';
+          difficulty[key] += 1;
+        }
+        const t = new Date(d.submittedAt);
+        if (!lastSolvedAt || t > lastSolvedAt) lastSolvedAt = t;
+        for (const tp of d.topics ?? []) {
+          topicAccepted.set(tp, (topicAccepted.get(tp) ?? 0) + 1);
+        }
+        if (typeof d.rating === 'number') {
+          recentRatings.push({
+            submittedAt: t.toISOString(),
+            rating: d.rating,
+            problemId: d.problemId,
+          });
+        }
+      }
+    }
+
+    // Compute current streak — consecutive UTC days ending today with ≥1 accepted submission
+    const acceptedDays = new Set<string>();
+    for (const d of list as any[]) {
+      if (d.status !== 'accepted') continue;
+      const t = new Date(d.submittedAt);
+      acceptedDays.add(
+        `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(
+          t.getUTCDate()
+        ).padStart(2, '0')}`
+      );
+    }
+    let streak = 0;
+    const cursor = new Date();
+    while (true) {
+      const ymd = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}-${String(
+        cursor.getUTCDate()
+      ).padStart(2, '0')}`;
+      if (acceptedDays.has(ymd)) {
+        streak += 1;
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
+      } else {
+        break;
+      }
+      // Safety bound — never look back more than 1 year
+      if (streak > 366) break;
+    }
+
+    out.push({
+      platform,
+      handle: integ.handle,
+      isActive: !!integ.isActive,
+      lastSyncAt: integ.lastSyncAt ? new Date(integ.lastSyncAt).toISOString() : null,
+      lastSyncStatus: integ.lastSyncStatus ?? null,
+      lastSolvedAt: lastSolvedAt ? lastSolvedAt.toISOString() : null,
+      distinctSolved: distinctAccepted.size,
+      submissions,
+      difficulty,
+      topTopics: Array.from(topicAccepted.entries())
+        .map(([topic, count]) => ({ topic, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5),
+      recentRatings: recentRatings.sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1)).slice(0, 50),
+      currentStreakDays: streak,
+    });
+  }
+  return out.sort((a, b) => b.distinctSolved - a.distinctSolved);
 }
 
 export async function getExtractionStats(userId: string): Promise<ExtractionStats> {

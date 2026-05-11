@@ -5,6 +5,7 @@ import { CodeReview, codeReviewToJSON } from '../models/CodeReview.js';
 import { ApiError } from '../utils/ApiError.js';
 import { geminiJSON } from './gemini.js';
 import { codeReviewPrompt } from '../prompts/review.js';
+import { sanitizeResources, type LearningResource } from './learningResourceService.js';
 
 type ReviewSeverityCounts = { critical: number; warning: number; suggestion: number; info: number };
 
@@ -18,11 +19,14 @@ interface AiReviewShape {
     severity: 'critical' | 'warning' | 'suggestion' | 'info';
     comment: string;
   }>;
+  resources?: unknown; // shape validated by sanitizeResources
 }
 
 const VALID_SEVERITY = new Set(['critical', 'warning', 'suggestion', 'info']);
 
-function sanitize(raw: AiReviewShape, lineCount: number): AiReviewShape {
+type SanitizedReview = Omit<AiReviewShape, 'resources'> & { resources: LearningResource[] };
+
+function sanitize(raw: AiReviewShape, lineCount: number): SanitizedReview {
   // Clamp + drop comments that point at lines outside the file or have garbage severity.
   const score = Math.max(0, Math.min(100, Math.round(Number(raw.score) || 0)));
   const lineComments = (Array.isArray(raw.lineComments) ? raw.lineComments : [])
@@ -42,6 +46,7 @@ function sanitize(raw: AiReviewShape, lineCount: number): AiReviewShape {
     strengths: (Array.isArray(raw.strengths) ? raw.strengths : []).slice(0, 4),
     weaknesses: (Array.isArray(raw.weaknesses) ? raw.weaknesses : []).slice(0, 6),
     lineComments,
+    resources: sanitizeResources(raw.resources, { max: 5 }),
   };
 }
 
@@ -104,6 +109,7 @@ export async function getOrGenerateReview(
         strengths: clean.strengths,
         weaknesses: clean.weaknesses,
         lineComments: clean.lineComments,
+        resources: clean.resources,
       },
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }

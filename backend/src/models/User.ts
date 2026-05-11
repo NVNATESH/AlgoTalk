@@ -14,7 +14,7 @@ const userSchema = new Schema(
     resetToken: { type: String, select: false },
     resetExpires: { type: Date, select: false },
 
-    role: { type: String, enum: ['user', 'admin'], default: 'user' },
+    role: { type: String, enum: ['user', 'moderator', 'admin'], default: 'user' },
 
     profilePic: { type: String, default: '' },
     bio: { type: String, default: '', maxlength: 500 },
@@ -44,6 +44,11 @@ const userSchema = new Schema(
       // When `notifications` master switch is false, every type is suppressed
       // regardless of this map.
       notificationPrefs: { type: Schema.Types.Mixed, default: {} },
+      // Per-type EMAIL opt-out. Independent from `notificationPrefs`: a user
+      // may want in-app pings for sync-complete but no email about it.
+      // Missing keys default to true ONLY for types in the email-worthy
+      // allowlist; everything else stays in-app-only regardless.
+      emailNotificationPrefs: { type: Schema.Types.Mixed, default: {} },
     },
 
     refreshTokenVersion: { type: Number, default: 0 },
@@ -94,3 +99,20 @@ export const publicUser = (u: any) => ({
   twoFactorEnabled: !!u.twoFactorEnabled,
   createdAt: u.createdAt,
 });
+
+export const XP_RANKS = [
+  { min: 0,     label: 'Beginner' },
+  { min: 200,   label: 'Explorer' },
+  { min: 500,   label: 'Solver' },
+  { min: 1500,  label: 'Challenger' },
+  { min: 4000,  label: 'Expert' },
+  { min: 10000, label: 'Master' },
+] as const;
+
+export function rankForXP(xp: number): string {
+  let rank = 'Beginner';
+  for (const r of XP_RANKS) {
+    if (xp >= r.min) rank = r.label;
+  }
+  return rank;
+}

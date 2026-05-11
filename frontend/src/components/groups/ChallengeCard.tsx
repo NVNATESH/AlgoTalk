@@ -9,6 +9,7 @@ import {
   Code2,
   ExternalLink,
   Loader2,
+  RefreshCw,
   Sparkles,
   Trash2,
   Users,
@@ -40,6 +41,7 @@ export function ChallengeCard({
   onUpdate,
   onDelete,
   onRequestMeet,
+  align = 'left',
 }: {
   challenge: Challenge;
   groupId: string;
@@ -48,11 +50,21 @@ export function ChallengeCard({
   onUpdate: (c: Challenge) => void;
   onDelete: (id: string) => void;
   onRequestMeet?: (c: Challenge) => void;
+  align?: 'left' | 'right';
 }) {
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const canDelete = isAdmin || challenge.createdBy === currentUserId;
   const canRequestMeet = !!onRequestMeet && !challenge.expired;
+
+  const formatRelative = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60_000) return 'just now';
+    if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)}h ago`;
+    return new Date(iso).toLocaleDateString();
+  };
 
   const isCoding = challenge.type === 'coding';
   const respondAptitude = async (option: 'A' | 'B' | 'C' | 'D') => {
@@ -78,10 +90,12 @@ export function ChallengeCard({
         verified: boolean;
         message: string;
         challenge: Challenge;
+        sync?: { platform: string; lastSyncAt: string | null; lastSyncStatus: string | null };
       }>(`/groups/${groupId}/challenges/${challenge.id}/verify`, {
         method: 'POST',
         auth: true,
       });
+      if (r.sync?.lastSyncAt) setSyncedAt(r.sync.lastSyncAt);
       if (r.verified) {
         toast.success(r.message);
         onUpdate(r.challenge);
@@ -117,12 +131,17 @@ export function ChallengeCard({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        'glass relative overflow-hidden p-5',
+        'glass relative overflow-hidden p-3',
+        align === 'right' ? 'ml-8 border-r-2 border-r-accent-violet/30' : 'mr-8 border-l-2 border-l-accent-cyan/30',
         challenge.expired && 'opacity-90',
         challenge.myResponse?.isCorrect && 'ring-1 ring-accent-emerald/40'
       )}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      {/* Creator username at top */}
+      <div className={cn('mb-1 text-[10px] font-semibold tracking-wider', align === 'right' ? 'text-right text-accent-violet' : 'text-left text-accent-cyan')}>
+        {challenge.createdByUsername || 'unknown'}
+      </div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
             {isCoding ? (
@@ -148,7 +167,7 @@ export function ChallengeCard({
               </span>
             )}
           </div>
-          <h3 className="mt-1 font-display text-base font-semibold leading-tight">
+          <h3 className="mt-0.5 font-display text-sm font-semibold leading-tight">
             {challenge.title}
           </h3>
           {challenge.description && (
@@ -191,7 +210,7 @@ export function ChallengeCard({
 
       {/* CODING body */}
       {isCoding && (
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-sm">
+        <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.02] p-2 text-xs">
           {challenge.problemSlug ? (
             <div className="flex items-center justify-between gap-2">
               <div className="text-zinc-300">
@@ -259,6 +278,12 @@ export function ChallengeCard({
                         </span>
                       )}
                     </button>
+                  )}
+                  {syncedAt && (
+                    <span className="basis-full text-[10px] text-zinc-600">
+                      <RefreshCw className="mr-1 inline h-2.5 w-2.5" />
+                      Synced {formatRelative(syncedAt)} from {challenge.externalPlatform}.
+                    </span>
                   )}
                 </div>
               )}

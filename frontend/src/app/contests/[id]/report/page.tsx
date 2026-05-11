@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   CheckCircle2,
+  Download,
   Lightbulb,
   Loader2,
   RefreshCw,
@@ -22,6 +23,7 @@ import { AppShell } from '@/components/AppShell';
 import { api, ApiError } from '@/lib/api';
 import type { ContestReport } from '@/types/contest';
 import { cn } from '@/lib/utils';
+import { ResourceList } from '@/components/learning/ResourceList';
 
 export default function ContestReportPage() {
   const params = useParams<{ id: string }>();
@@ -73,6 +75,87 @@ export default function ContestReportPage() {
     void fetchExisting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contestId]);
+
+  const downloadReport = () => {
+    if (!report) return;
+    const lines: string[] = [];
+    lines.push('# Contest Report');
+    lines.push(`Generated: ${new Date(report.createdAt).toLocaleString()}`);
+    lines.push(`Model: ${report.generatedBy}`);
+    lines.push('');
+    if (report.summary) { lines.push(`## Summary`); lines.push(report.summary); lines.push(''); }
+    if (report.whatHappened) { lines.push(`## What Happened`); lines.push(report.whatHappened); lines.push(''); }
+    if (report.predictedRatingChange) { lines.push(`**Predicted Rating Change:** ${report.predictedRatingChange}`); lines.push(''); }
+    if (typeof report.actualRatingChange === 'number') { lines.push(`**Actual Rating Change:** ${report.actualRatingChange > 0 ? '+' : ''}${report.actualRatingChange}`); lines.push(''); }
+    if (report.whatYouDidWell.length > 0) {
+      lines.push('## What You Did Well');
+      report.whatYouDidWell.forEach((it) => {
+        lines.push(`- **${it.point}**`);
+        if (it.evidence) lines.push(`  _Evidence: ${it.evidence}_`);
+      });
+      lines.push('');
+    }
+    if (report.whereYouStruggled.length > 0) {
+      lines.push('## Where You Struggled');
+      report.whereYouStruggled.forEach((it) => {
+        lines.push(`- **[${it.problem}]** ${it.issue} (${it.timeLostMinutes} min lost)`);
+        if (it.rootCause) lines.push(`  _Root cause: ${it.rootCause}_`);
+      });
+      lines.push('');
+    }
+    if (report.codeQualityNotes.length > 0) {
+      lines.push('## Code Quality Notes');
+      report.codeQualityNotes.forEach((it) => lines.push(`- **[${it.problem}]** ${it.note}`));
+      lines.push('');
+    }
+    if (report.howToImprove.length > 0) {
+      lines.push('## How to Improve');
+      report.howToImprove.forEach((it) => lines.push(`- [${it.priority.toUpperCase()}] ${it.action}`));
+      lines.push('');
+    }
+    if (report.whatToLearnNext.length > 0) {
+      lines.push('## What to Learn Next');
+      report.whatToLearnNext.forEach((it) => {
+        lines.push(`- **${it.topic}** (~${it.estimatedHours}h)`);
+        if (it.why) lines.push(`  ${it.why}`);
+        if (it.resources?.length) lines.push(`  Resources: ${it.resources.join(', ')}`);
+      });
+      lines.push('');
+    }
+    if (report.practicePlan7Days.length > 0) {
+      lines.push('## 7-Day Practice Plan');
+      report.practicePlan7Days.forEach((d) => {
+        lines.push(`### Day ${d.day}`);
+        d.problems.forEach((p) => {
+          lines.push(`- ${p.title} [${p.platform}] (${p.difficulty || '?'}) — ${p.topic || ''} ~${p.estimatedMinutes}min`);
+          if (p.url) lines.push(`  ${p.url}`);
+        });
+      });
+      lines.push('');
+    }
+    if (report.nextContestRecommendation) {
+      lines.push('## Next Contest Recommendation');
+      lines.push(report.nextContestRecommendation);
+      lines.push('');
+    }
+    if (report.resources?.length) {
+      lines.push('## Resources');
+      report.resources.forEach((r) => lines.push(`- [${r.title}](${r.url}) — ${r.topic}: ${r.why}`));
+      lines.push('');
+    }
+
+    const text = lines.join('\n');
+    const blob = new Blob([text], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `contest-report-${new Date(report.createdAt).toISOString().split('T')[0]}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Report downloaded!');
+  };
 
   if (loading) {
     return (
@@ -150,15 +233,25 @@ export default function ContestReportPage() {
                   )}
                 </div>
               </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={downloadReport}
+                className="btn-ghost text-xs"
+                title="Download report"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Download
+              </button>
               <button
                 onClick={() => generate(true)}
                 disabled={generating}
-                className="btn-ghost shrink-0 text-xs"
+                className="btn-ghost text-xs"
                 title="Regenerate"
               >
                 {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                 Regenerate
               </button>
+            </div>
             </div>
             {report.whatHappened && (
               <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
@@ -335,6 +428,12 @@ export default function ContestReportPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {report.resources && report.resources.length > 0 && (
+            <Section icon={Sparkles} title="Curated resources" tint="violet">
+              <ResourceList resources={report.resources} title="" />
+            </Section>
           )}
 
           <div className="text-right text-[10px] text-zinc-600">

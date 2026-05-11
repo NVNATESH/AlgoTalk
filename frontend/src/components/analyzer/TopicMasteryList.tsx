@@ -42,7 +42,7 @@ export function TopicMasteryList({ topics }: { topics: TopicMastery[] }) {
           key={t.topic}
           initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: i * 0.03 }}
+          transition={{ delay: Math.min(i * 0.025, 0.25) }}
           className="rounded-xl border border-white/5 bg-white/[0.02] p-3"
         >
           <div className="flex items-center justify-between gap-2 text-sm">
@@ -63,7 +63,7 @@ export function TopicMasteryList({ topics }: { topics: TopicMastery[] }) {
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${t.mastery}%` }}
-              transition={{ duration: 0.7, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.5, delay: Math.min(i * 0.03, 0.3), ease: [0.16, 1, 0.3, 1] }}
               className="h-full rounded-full"
               style={{ background: masteryColor(t.mastery) }}
             />

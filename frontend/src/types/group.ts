@@ -34,6 +34,7 @@ export interface Challenge {
   groupId: string;
   type: ChallengeType;
   createdBy: string;
+  createdByUsername: string;
   title: string;
   description: string;
   points: number;
@@ -95,9 +96,27 @@ export interface MeetRequest {
   status: MeetStatus;
   acceptedBy: string | null;
   acceptor: MeetUser | null;
+  scheduledTime: string | null;
   roomId: string | null;
   acceptedAt: string | null;
   cancelledAt: string | null;
   expiresAt: string;
   createdAt: string | null;
+}
+
+export interface ActiveMeeting {
+  roomId: string;
+  name: string;
+  icon: string;
+  asker: string;
+  writers: string[];
+  readOnly: string[];
+  participantCount: number;
+  participants: Array<{ userId: string; username: string; name: string; profilePic: string }>;
+  createdAt: string;
+}
+
+export interface ActiveMeetingResponse {
+  active: ActiveMeeting | null;
+  canStart: boolean;
 }

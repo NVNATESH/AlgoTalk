@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import {
   Crosshair,
   Loader2,
   Lightbulb,
+  Lock,
   PlayCircle,
   Sparkles,
 } from 'lucide-react';
@@ -104,7 +105,7 @@ export default function GoalFocusPage() {
       m.status === 'not_started' ? 'in_progress' : m.status === 'in_progress' ? 'completed' : 'not_started';
     await wrapAction(`m:${m.moduleId}`, async () => {
       const out = await updateModule(goal.id, m.moduleId, nextStatus);
-      if (nextStatus === 'completed') toast.success(`✓ "${m.title}" complete`);
+      if (nextStatus === 'completed') toast.success(`âœ“ "${m.title}" complete`);
       return out;
     });
   };
@@ -120,7 +121,7 @@ export default function GoalFocusPage() {
           href="/dashboard"
           className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to dashboard
+          <ArrowLeft className="h-4 w-4" /> Back to Goals
         </Link>
       </div>
 
@@ -173,7 +174,7 @@ export default function GoalFocusPage() {
               />
               {goal.status === 'completed' ? (
                 <span className="rounded-full bg-accent-violet/20 px-4 py-1 text-xs font-medium text-accent-violet">
-                  🏆 Goal completed
+                  ðŸ† Goal completed
                 </span>
               ) : goal.isFocus ? (
                 <button
@@ -205,7 +206,7 @@ export default function GoalFocusPage() {
             <KeyStat label="Days left" value={days < 0 ? 'Overdue' : `${days}d`} danger={days < 3} />
             <KeyStat label="Estimated" value={`${goal.estimatedHours}h`} />
             <KeyStat label="In progress" value={String(inProgress)} />
-            <KeyStat label="Streak" value={goal.streak > 0 ? `🔥 ${goal.streak}` : '—'} />
+            <KeyStat label="Streak" value={goal.streak > 0 ? `ðŸ”¥ ${goal.streak}` : 'â€”'} />
           </div>
         </motion.section>
 
@@ -227,7 +228,7 @@ export default function GoalFocusPage() {
               <div className="mt-1 font-display font-semibold">{next.title}</div>
               <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{next.description}</p>
               <div className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-                <Clock className="h-3 w-3" /> {next.estimatedHours}h · {next.difficulty}
+                <Clock className="h-3 w-3" /> {next.estimatedHours}h Â· {next.difficulty}
               </div>
               <button
                 onClick={openNextModule}
@@ -253,7 +254,7 @@ export default function GoalFocusPage() {
             </div>
           ) : (
             <div className="mt-4 rounded-xl border border-accent-violet/30 bg-accent-violet/5 p-4 text-sm text-accent-violet">
-              🎉 You've completed every module — amazing work.
+              ðŸŽ‰ You've completed every module â€” amazing work.
             </div>
           )}
 
@@ -266,16 +267,21 @@ export default function GoalFocusPage() {
       <section className="mt-8">
         <h2 className="mb-4 font-display text-xl font-semibold">Modules</h2>
         <div className="space-y-2">
-          {goal.modules.map((m, i) => (
-            <ModuleRow
-              key={m.moduleId}
-              goalId={goal.id}
-              module={m}
-              index={i}
-              busy={busy === `m:${m.moduleId}`}
-              onCycle={() => cycleModule(m)}
-            />
-          ))}
+          {goal.modules.map((m, i) => {
+            // A module is locked if any previous module is not completed
+            const isLocked = i > 0 && goal.modules[i - 1].status !== 'completed';
+            return (
+              <ModuleRow
+                key={m.moduleId}
+                goalId={goal.id}
+                module={m}
+                index={i}
+                busy={busy === `m:${m.moduleId}`}
+                onCycle={() => cycleModule(m)}
+                isLocked={isLocked}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -302,36 +308,47 @@ function ModuleRow({
   index,
   busy,
   onCycle,
+  isLocked,
 }: {
   goalId: string;
   module: GoalModule;
   index: number;
   busy: boolean;
   onCycle: () => void;
+  isLocked: boolean;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: Math.min(index * 0.03, 0.25) }}
       className={cn(
         'glass group flex items-start gap-4 p-4 transition hover:border-white/20',
-        m.status === 'completed' && 'opacity-60'
+        m.status === 'completed' && 'opacity-60',
+        isLocked && m.status === 'not_started' && 'opacity-50'
       )}
     >
       <button
         onClick={(e) => {
           e.stopPropagation();
+          if (isLocked && m.status === 'not_started') {
+            toast.error('Complete the previous module first');
+            return;
+          }
           onCycle();
         }}
         disabled={busy}
         className="mt-0.5 shrink-0"
         aria-label={
-          m.status === 'completed' ? 'Mark not started' : m.status === 'in_progress' ? 'Mark complete' : 'Start'
+          isLocked && m.status === 'not_started'
+            ? 'Locked — complete previous module'
+            : m.status === 'completed' ? 'Mark not started' : m.status === 'in_progress' ? 'Mark complete' : 'Start'
         }
       >
         {busy ? (
           <Loader2 className="h-6 w-6 animate-spin text-accent-violet" />
+        ) : isLocked && m.status === 'not_started' ? (
+          <Lock className="h-6 w-6 text-zinc-600" />
         ) : m.status === 'completed' ? (
           <CheckCircle2 className="h-6 w-6 text-accent-emerald" />
         ) : m.status === 'in_progress' ? (
@@ -361,6 +378,16 @@ function ModuleRow({
           {m.quizScore !== null && (
             <span className="rounded-full border border-accent-violet/30 bg-accent-violet/10 px-2 py-0.5 text-[10px] font-medium text-accent-violet">
               Quiz: {m.quizScore}%
+            </span>
+          )}
+          {(m.problemSlugs?.length ?? 0) > 0 && (
+            <span className={cn(
+              'rounded-full border px-2 py-0.5 text-[10px] font-medium',
+              m.problemsSolved >= m.problemSlugs.length
+                ? 'border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald'
+                : 'border-accent-cyan/30 bg-accent-cyan/10 text-accent-cyan'
+            )}>
+              Problems: {m.problemsSolved}/{m.problemSlugs.length}
             </span>
           )}
         </div>
