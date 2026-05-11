@@ -45,9 +45,12 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5000
+      - CLIENT_URL=${CLIENT_URL:-http://localhost:3000}
       # Inside the compose network the backend reaches Mongo by service name.
       # Override this in production to point at Atlas / Neon / etc.
       - MONGO_URI=${MONGO_URI:-mongodb://mongo:27017/learnhub}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in backend/.env}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in backend/.env}
     ports:
       - "5000:5000"
     healthcheck:
