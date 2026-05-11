@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -81,7 +81,7 @@ export function QuizPlayer({
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
           <div className="text-xs text-zinc-500">
-            Question {idx + 1} of {questions.length} ·{' '}
+            Question {idx + 1} of {questions.length} Â·{' '}
             <span className="text-zinc-400">{q.points} pt{q.points !== 1 ? 's' : ''}</span>
           </div>
           <div className="mt-1 text-[11px] uppercase tracking-wider text-accent-violet">
@@ -185,8 +185,8 @@ function QuestionRenderer({
 
 function labelFor(t: Question['type']): string {
   return {
-    mcq_single: 'Multiple choice — pick one',
-    mcq_multi: 'Multiple choice — pick all that apply',
+    mcq_single: 'Multiple choice â€” pick one',
+    mcq_multi: 'Multiple choice â€” pick all that apply',
     fill_blank: 'Fill in the blank',
     match: 'Match the following',
     true_false: 'True or false',
@@ -222,10 +222,10 @@ function QuizResultView({
           )}
         </div>
         <h2 className="mt-4 font-display text-3xl font-bold">
-          {result.passed ? '🎉 Passed!' : 'Almost there'}
+          {result.passed ? 'ðŸŽ‰ Passed!' : 'Almost there'}
         </h2>
         <p className="mt-1 text-zinc-400">
-          {result.percentage}% — {result.score}/{result.maxScore} points · pass at{' '}
+          {result.percentage}% â€” {result.score}/{result.maxScore} points Â· pass at{' '}
           {result.passThreshold}%
         </p>
 
@@ -251,7 +251,7 @@ function QuizResultView({
               key={r.id}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
+              transition={{ delay: Math.min(i * 0.03, 0.25) }}
               className={cn(
                 'rounded-xl border p-4',
                 r.correct
@@ -335,7 +335,7 @@ function ExpectedReveal({ r, q }: { r: any; q: Question | undefined }) {
         <p className="mt-1.5 text-xs text-zinc-400">
           <span className="text-zinc-300">Correct: </span>
           <span className="text-accent-emerald">
-            {(r.expected.correctOptions ?? []).join(' · ')}
+            {(r.expected.correctOptions ?? []).join(' Â· ')}
           </span>
         </p>
       );
@@ -353,7 +353,7 @@ function ExpectedReveal({ r, q }: { r: any; q: Question | undefined }) {
         <ul className="mt-1.5 space-y-0.5 text-xs text-zinc-400">
           {(r.expected.pairs ?? []).map((p: any, i: number) => (
             <li key={i}>
-              <span className="text-zinc-200">{p.left}</span> →{' '}
+              <span className="text-zinc-200">{p.left}</span> â†’{' '}
               <span className="text-accent-emerald">{p.right}</span>
             </li>
           ))}

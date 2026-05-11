@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,7 +44,7 @@ export function BadgeGrid({
   if (earned.length === 0 && !showLocked) {
     return (
       <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
-        No badges earned yet — start solving and goals to unlock the first one.
+        No badges earned yet â€” start solving and goals to unlock the first one.
       </div>
     );
   }
@@ -54,7 +54,7 @@ export function BadgeGrid({
       {earned.length > 0 && (
         <section>
           <SectionLabel
-            label={`Earned · ${earned.length}`}
+            label={`Earned Â· ${earned.length}`}
             sub={earned.length === badges.length ? 'You\'ve unlocked everything!' : undefined}
           />
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
@@ -73,7 +73,7 @@ export function BadgeGrid({
 
       {showLocked && locked.length > 0 && (
         <section>
-          <SectionLabel label={`Locked · ${locked.length}`} sub="Closest to earning shown first" />
+          <SectionLabel label={`Locked Â· ${locked.length}`} sub="Closest to earning shown first" />
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
             {locked.map((b, i) => (
               <BadgeCell key={b.key} badge={b} index={i} onHover={setHover} />
@@ -153,7 +153,7 @@ function BadgeCell({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       whileHover={{ scale: 1.05, y: -2 }}
-      transition={{ delay: index * 0.03 }}
+      transition={{ delay: Math.min(index * 0.025, 0.22) }}
       onMouseEnter={() => onHover(badge)}
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(badge)}

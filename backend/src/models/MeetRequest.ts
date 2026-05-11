@@ -16,6 +16,7 @@ const meetRequestSchema = new Schema(
       index: true,
     },
     acceptedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+    scheduledTime: { type: Date, default: null },
     roomId: { type: Schema.Types.ObjectId, ref: 'Room', default: null },
 
     acceptedAt: { type: Date, default: null },
@@ -48,6 +49,7 @@ export const meetToJSON = (m: any) => ({
   status: m.status,
   acceptedBy: m.acceptedBy ? String(m.acceptedBy) : null,
   acceptor: m.acceptor ?? null,
+  scheduledTime: m.scheduledTime ? new Date(m.scheduledTime).toISOString() : null,
   roomId: m.roomId ? String(m.roomId) : null,
   acceptedAt: m.acceptedAt ? new Date(m.acceptedAt).toISOString() : null,
   cancelledAt: m.cancelledAt ? new Date(m.cancelledAt).toISOString() : null,

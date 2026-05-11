@@ -4,7 +4,7 @@ const exampleSchema = new Schema(
   {
     title: { type: String, required: true },
     explanation: { type: String, required: true },
-    code: { type: String, default: '' },
+    code: { type: Schema.Types.Mixed, default: '' },
     language: { type: String, default: '' },
   },
   { _id: false }
@@ -129,7 +129,12 @@ export const contentToJSON = (c: any) => ({
   goalId: String(c.goalId),
   moduleId: c.moduleId,
   concepts: c.concepts,
-  examples: c.examples,
+  examples: (c.examples ?? []).map((ex: any) => ({
+    title: ex.title,
+    explanation: ex.explanation,
+    code: ex.code, // string (legacy) or object (multi-lang)
+    language: ex.language ?? 'python',
+  })),
   quiz: sanitizeQuizForUser(c.quiz ?? []),
   questionCount: (c.quiz ?? []).length,
   totalPoints: (c.quiz ?? []).reduce((s: number, q: any) => s + (q.points ?? 1), 0),

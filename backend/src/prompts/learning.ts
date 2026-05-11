@@ -4,6 +4,7 @@ export interface RoadmapInput {
   weeklyHours?: number;
   deadlineDays?: number;
   notes?: string;
+  userContext?: string; // platform stats, weaknesses, strengths
 }
 
 export interface GeneratedModule {
@@ -14,12 +15,19 @@ export interface GeneratedModule {
   difficulty: 'Easy' | 'Medium' | 'Hard';
 }
 
+export interface GeneratedResource {
+  title: string;
+  url: string;
+  type: 'youtube' | 'docs' | 'blog' | 'github' | 'practice' | 'cheatsheet' | 'pdf' | 'article';
+}
+
 export interface GeneratedRoadmap {
   name: string;
   icon: string;
   description: string;
   estimatedHours: number;
   modules: GeneratedModule[];
+  resources?: GeneratedResource[];
   rationale: string;
 }
 
@@ -36,13 +44,19 @@ USER REQUEST:
 - Weekly hours available: ${hours}
 - Target completion: ${days} days
 ${input.notes ? `- Additional notes: ${input.notes}` : ''}
-
+${input.userContext ? `
+USER PROFILE DATA (use this to personalize the roadmap — focus on weaknesses, skip topics they already know):
+${input.userContext}
+` : ''}
 CONSTRAINTS:
 - Generate 5–10 modules ordered from foundations to advanced.
 - Each module is a concrete, learnable unit (1–8 hours).
 - Sum of estimatedHours should fit roughly into ${hours * (days / 7)} hours total.
 - Prefer practical, problem-solving topics over theory dumps.
 - Pick a single relevant emoji for the goal "icon".
+- Do NOT include practice problems — those are managed separately.
+
+Also generate 4-8 helpful learning resources (real URLs from YouTube, LeetCode, GeeksForGeeks, NeetCode, official docs, etc.).
 
 Return STRICT JSON only (no prose, no markdown fences) matching this schema:
 {
@@ -57,6 +71,13 @@ Return STRICT JSON only (no prose, no markdown fences) matching this schema:
       "topics": ["3–6 short topic tags"],
       "estimatedHours": number,
       "difficulty": "Easy" | "Medium" | "Hard"
+    }
+  ],
+  "resources": [
+    {
+      "title": "string",
+      "url": "string (real URL)",
+      "type": "youtube" | "docs" | "blog" | "github" | "practice" | "cheatsheet" | "pdf" | "article"
     }
   ],
   "rationale": "2 sentences on why this ordering works"
@@ -75,8 +96,8 @@ export interface ModuleContext {
 export interface GeneratedExample {
   title: string;
   explanation: string;
-  code: string;
-  language: string;
+  code: Record<string, string>; // keyed by language: python, cpp, java, c
+  language: string; // primary language
 }
 
 export interface ConceptsResponse {
@@ -107,14 +128,14 @@ WRITE TWO PIECES:
 2. "examples" — 2–3 concrete, runnable examples that build intuition. Each example has:
    - title (max 60 chars)
    - explanation (2–4 sentences walking through the idea)
-   - code (a short snippet, 5–25 lines)
-   - language (e.g. "python", "javascript", "cpp", "java" — pick the most appropriate)
+   - code — an object with implementations in ALL FOUR languages: "python", "cpp", "java", "c". Each value is a short snippet (5–25 lines). If the concept is language-agnostic, still provide idiomatic implementations in each language.
+   - language — set to "python" (the primary/default language)
 
 Return STRICT JSON only (no prose, no markdown fences around the whole thing) matching this schema:
 {
   "concepts": "string (full markdown)",
   "examples": [
-    { "title": "string", "explanation": "string", "code": "string", "language": "string" }
+    { "title": "string", "explanation": "string", "code": { "python": "string", "cpp": "string", "java": "string", "c": "string" }, "language": "python" }
   ]
 }`;
 }

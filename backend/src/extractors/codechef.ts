@@ -30,6 +30,8 @@ interface CodeChefProfile {
   rank: string;
   maxRating: number | null;
   stars: string;
+  countryRank: number | null;
+  globalRank: number | null;
 }
 
 export interface CodeChefSubmission {
@@ -114,8 +116,20 @@ export async function fetchCodeChefProfile(handle: string): Promise<CodeChefProf
   const starsMatch = html.match(/class="rating"[^>]*>([0-9]★)/) || html.match(/(\d★)/);
   const stars = starsMatch ? starsMatch[1] : '';
 
-  const rankMatch = html.match(/Country Rank[^#]*#?(\d+)/i);
-  const rank = rankMatch ? `Country Rank #${rankMatch[1]}` : stars || '';
+  // CodeChef's rating-ranks block renders the number FIRST and the label SECOND:
+  //   <strong>5432</strong> ... <small>Country Rank</small>
+  // The previous `Country Rank[^#]*#?(\d+)` regex captured the digit *after* the
+  // label, which on a normal profile page is unrelated content (often the user's
+  // star count "3", producing the infamous "Country Rank #3" bug). Read the
+  // <li>/anchor that contains "Country Rank" and pull the strong/N immediately
+  // before it. Try a few layouts in priority order to stay resilient to redesigns.
+  const countryRank = extractRankNear(html, 'Country Rank');
+  const globalRank = extractRankNear(html, 'Global Rank');
+  const rank = countryRank
+    ? `Country Rank #${countryRank.toLocaleString()}`
+    : globalRank
+      ? `Global Rank #${globalRank.toLocaleString()}`
+      : stars || '';
 
   // Display name (best-effort from the H1 / header-text)
   const nameMatch =
@@ -135,7 +149,57 @@ export async function fetchCodeChefProfile(handle: string): Promise<CodeChefProf
     maxRating,
     rank,
     stars,
+    countryRank,
+    globalRank,
   };
+}
+
+/**
+ * Extract the numeric rank that appears in the same DOM neighborhood as the
+ * given label ("Country Rank" / "Global Rank"). CodeChef renders the rank
+ * value before the label inside `<li>` items in the rating-ranks list, so we
+ * search for the nearest preceding number in a small window. Falls back to
+ * post-label patterns for legacy layouts.
+ */
+function extractRankNear(html: string, label: string): number | null {
+  const labelEsc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Layout A (current): <strong>5432</strong>…</a><small>Country Rank</small>
+  // Window of 200 chars looking back from the label, take the LAST number.
+  const before = new RegExp(
+    `<strong[^>]*>\\s*(\\d{1,9})\\s*<\\/strong>[\\s\\S]{0,200}?${labelEsc}`,
+    'i'
+  );
+  const beforeAll = new RegExp(
+    `(\\d{1,9})\\s*<\\/(?:strong|a|span)>[\\s\\S]{0,40}?${labelEsc}`,
+    'gi'
+  );
+  let m = html.match(before);
+  if (m) return toRankNumber(m[1]);
+
+  // Last-occurrence variant for layouts where multiple numbers appear in the window.
+  let lastMatch: RegExpExecArray | null = null;
+  let exec: RegExpExecArray | null;
+  while ((exec = beforeAll.exec(html))) lastMatch = exec;
+  if (lastMatch) return toRankNumber(lastMatch[1]);
+
+  // Layout B (legacy): "Country Rank #5432"
+  m = html.match(new RegExp(`${labelEsc}[\\s:]*#(\\d{1,9})`, 'i'));
+  if (m) return toRankNumber(m[1]);
+
+  // Layout C: label appears in a header that wraps the number afterwards inside
+  // an <a> or <strong> within a small window. Specifically NOT generic [^#]
+  // because that lets the regex skip into adjacent unrelated digits (the
+  // original "rank = 3" bug).
+  m = html.match(new RegExp(`${labelEsc}[\\s\\S]{0,120}?<(?:strong|a|span)[^>]*>\\s*#?(\\d{1,9})`, 'i'));
+  if (m) return toRankNumber(m[1]);
+
+  return null;
+}
+
+function toRankNumber(s: string): number | null {
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 const STATUS_BY_CLASS_FRAGMENT: Array<{ frag: RegExp; status: CodeChefSubmission['status'] }> = [
@@ -162,12 +226,15 @@ function statusFromCell(cellHtml: string): CodeChefSubmission['status'] {
 
 export async function fetchCodeChefRecent(
   handle: string,
-  pages = 100
+  pages = 300
 ): Promise<CodeChefSubmission[]> {
   const out: CodeChefSubmission[] = [];
-  // CodeChef returns ~10 rows/page and caps at `max_page` (~144 for active
-  // users with 1000+ submissions). Default to 100 pages so we capture roughly
-  // 1000 most-recent submissions; stop early on empty page or duplicate id.
+  // CodeChef returns ~10 rows/page and the API itself reports `max_page` per
+  // user. We page until the server-known last page (early-stop) or the
+  // safety cap, whichever comes first. 300 covers ~3000 submissions which is
+  // beyond the deepest histories on the platform; in practice the loop ends
+  // far earlier because we honor `lastMaxPage`. Throttle kicks in on long
+  // runs so CodeChef doesn't 429.
   const seenIds = new Set<string>();
   let lastMaxPage: number | null = null;
   for (let page = 0; page < pages; page++) {
@@ -254,11 +321,12 @@ function parseRow(row: string): CodeChefSubmission | null {
 
   const status = statusFromCell(row);
 
-  // Language: scan tds for a short upper/alphanumeric token like "C++17",
-  // "PYTH 3.6", "JAVA". Strip tags first.
+  // Language: scan tds for a known programming language token.
+  // Previous regex was too broad and matched problem slugs like BIGNAME, CNDY.
+  const KNOWN_LANG_PATTERN = /^(?:C\+\+\d*|C#|C|JAVA|PYTH|PYTHON|PY\d?|JS|JAVASCRIPT|RUBY|RUST|GO|GOLANG|KOTLIN|SCALA|PERL|HASKELL|SWIFT|PHP|DART|LUA|CLOJURE|ERLANG|FORTRAN|PASCAL|BASH|R|GNU\s*C\d*|GCC[\s\d.-]*|MSYS2?)(?:\s*[\d.()\w-]*)?$/i;
   const langMatch = tdMatches
-    .map((t) => stripTags(t))
-    .find((t) => /^[A-Z][A-Z0-9+# .]{0,12}$/.test(t.replace(/\s+/g, ' ').trim()));
+    .map((t) => stripTags(t).replace(/\s+/g, ' ').trim())
+    .find((t) => KNOWN_LANG_PATTERN.test(t));
   const language = langMatch ?? '';
 
   return {

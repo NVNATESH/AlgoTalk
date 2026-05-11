@@ -118,7 +118,7 @@ export function verifyTotp(
 export function buildOtpauthUri(
   email: string,
   secretBase32: string,
-  issuer = 'LearnHub'
+  issuer = 'AlgoTalk'
 ): string {
   const label = encodeURIComponent(`${issuer}:${email}`);
   const params = new URLSearchParams({

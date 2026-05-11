@@ -39,9 +39,24 @@ import { cn } from '@/lib/utils';
 
 const LANG_LABEL: Record<string, string> = {
   python: 'Python',
-  javascript: 'JS',
+  javascript: 'JavaScript',
   java: 'Java',
   cpp: 'C++',
+  'c++': 'C++',
+  c: 'C',
+  go: 'Go',
+  rust: 'Rust',
+  kotlin: 'Kotlin',
+  ruby: 'Ruby',
+  swift: 'Swift',
+  scala: 'Scala',
+  typescript: 'TypeScript',
+  php: 'PHP',
+  dart: 'Dart',
+  haskell: 'Haskell',
+  perl: 'Perl',
+  bash: 'Bash',
+  r: 'R',
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -261,8 +276,7 @@ export default function ProfilePage() {
                         key={l.language}
                         className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-zinc-300"
                       >
-                        {LANG_LABEL[l.language] ?? l.language}{' '}
-                        <span className="text-zinc-500">{l.count}</span>
+                        {LANG_LABEL[l.language] ?? l.language}
                       </span>
                     ))}
                   </div>
@@ -378,6 +392,9 @@ export default function ProfilePage() {
               </ul>
             )}
           </section>
+
+          {/* Rewind — integrated into profile */}
+          {isSelf && <RewindSection />}
         </div>
       </div>
 
@@ -714,5 +731,156 @@ function FollowButton({
     >
       {busy ? 'Saving…' : isFollowing ? 'Following' : 'Follow'}
     </button>
+  );
+}
+
+/* ────────────────────── Rewind Section (integrated into Profile) ────────────────────── */
+function RewindSection() {
+  const [data, setData] = useState<RewindSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const year = new Date().getFullYear();
+    api<{ rewind: RewindSummary }>(`/rewind?year=${year}`, { auth: true })
+      .then((r) => !cancelled && setData(r.rewind))
+      .catch(() => {})
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="glass p-6">
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-accent-violet" />
+        </div>
+      </section>
+    );
+  }
+
+  if (!data || !data.hasData) {
+    return (
+      <section className="glass p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-display text-lg font-semibold flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-accent-violet" /> Your {new Date().getFullYear()} Rewind
+          </h3>
+          <Link href="/rewind" className="text-xs text-zinc-400 hover:text-accent-violet">
+            View full rewind →
+          </Link>
+        </div>
+        <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
+          No activity this year yet — solve a problem to start writing your rewind.
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="glass p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-display text-lg font-semibold flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-accent-violet" /> Your {new Date().getFullYear()} Rewind
+        </h3>
+        <Link
+          href="/rewind"
+          className="inline-flex items-center gap-1 text-xs text-accent-violet hover:text-accent-fuchsia"
+        >
+          View full rewind <ArrowUpRight className="h-3 w-3" />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <RewindStat label="Problems solved" value={data.totals.distinctSolved} tint="violet" />
+        <RewindStat label="Submissions" value={data.totals.submissions} tint="cyan" />
+        <RewindStat label="Longest streak" value={data.totals.longestStreak} tint="amber" />
+        <RewindStat label="Active days" value={data.totals.activeDays} tint="emerald" />
+      </div>
+
+      {(data.topLanguage || data.topTopics?.[0]) && (
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {data.topLanguage && (
+            <div className="rounded-xl border border-accent-cyan/20 bg-accent-cyan/5 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Top Language</div>
+              <div className="mt-1 font-display text-lg font-bold text-accent-cyan">
+                {data.topLanguage.language}
+              </div>
+              <div className="text-xs text-zinc-500">{data.topLanguage.pct}% of submissions</div>
+            </div>
+          )}
+          {data.topTopics?.[0] && (
+            <div className="rounded-xl border border-accent-violet/20 bg-accent-violet/5 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Top Topic</div>
+              <div className="mt-1 font-display text-lg font-bold text-accent-violet">
+                {data.topTopics[0].topic}
+              </div>
+              <div className="text-xs text-zinc-500">{data.topTopics[0].solvedCount} solved</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {data.milestones && data.milestones.length > 0 && (
+        <div className="mt-4">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Recent Milestones</div>
+          <div className="space-y-1.5">
+            {data.milestones.slice(0, 3).map((m, i) => (
+              <div
+                key={`${m.type}-${i}`}
+                className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-sm"
+              >
+                <span className="text-base">{m.type === 'streak' ? '🔥' : m.type === 'solve_count' ? '🏆' : '⭐'}</span>
+                <span className="text-zinc-200">{m.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface RewindSummary {
+  hasData: boolean;
+  totals: {
+    distinctSolved: number;
+    submissions: number;
+    longestStreak: number;
+    activeDays: number;
+  };
+  topLanguage?: { language: string; pct: number; count: number };
+  topTopics?: Array<{ topic: string; solvedCount: number }>;
+  milestones?: Array<{ type: string; label: string; detail?: string; date: string }>;
+}
+
+function RewindStat({
+  label,
+  value,
+  tint,
+}: {
+  label: string;
+  value: number;
+  tint: 'violet' | 'cyan' | 'amber' | 'emerald';
+}) {
+  const tintMap = {
+    violet: 'border-accent-violet/20 bg-accent-violet/5',
+    cyan: 'border-accent-cyan/20 bg-accent-cyan/5',
+    amber: 'border-amber-500/20 bg-amber-500/5',
+    emerald: 'border-accent-emerald/20 bg-accent-emerald/5',
+  };
+  const textMap = {
+    violet: 'text-accent-violet',
+    cyan: 'text-accent-cyan',
+    amber: 'text-amber-300',
+    emerald: 'text-accent-emerald',
+  };
+  return (
+    <div className={cn('rounded-xl border p-3', tintMap[tint])}>
+      <div className={cn('font-display text-2xl font-bold tabular-nums', textMap[tint])}>
+        {value.toLocaleString()}
+      </div>
+      <div className="text-[10px] text-zinc-500">{label}</div>
+    </div>
   );
 }

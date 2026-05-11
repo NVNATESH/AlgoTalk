@@ -1,11 +1,11 @@
-# LearnHub Capture (Browser Extension)
+# AlgoTalk Capture (Browser Extension)
 
 A Manifest V3 browser extension that captures contest submissions in real
 time across Codeforces, AtCoder, LeetCode, and CodeChef and forwards them to
-your LearnHub backend's `/api/extension/submission-event` endpoint.
+your AlgoTalk backend's `/api/extension/submission-event` endpoint.
 
 Without the extension, the platform pollers run every 60s; with it, your
-verdicts land in your LearnHub dashboard within ~1 second of the platform
+verdicts land in your AlgoTalk dashboard within ~1 second of the platform
 showing them.
 
 ## Install (developer mode)
@@ -14,8 +14,8 @@ showing them.
 2. Open `chrome://extensions` (or `edge://extensions`, `about:debugging` on Firefox).
 3. Enable **Developer mode**.
 4. Click **Load unpacked** → pick `frontend/extensions/learnhub-capture/`.
-5. Click the puzzle-piece icon in the toolbar → pin **LearnHub Capture**.
-6. Click the icon → enter your LearnHub URL (e.g. `http://localhost:5000`) and
+5. Click the puzzle-piece icon in the toolbar → pin **AlgoTalk Capture**.
+6. Click the icon → enter your AlgoTalk URL (e.g. `http://localhost:5000`) and
    your **pairing token**.
 
 ### Generating a pairing token
@@ -56,7 +56,7 @@ chrome.runtime.sendMessage({
 
 The service worker dedupes within a 60s window (same platform + URL + verdict +
 timestamp), then POSTs to `<baseUrl>/api/extension/submission-event` with
-`X-LearnHub-Token` set to the pairing token.
+`X-AlgoTalk-Token` set to the pairing token.
 
 ## Per-platform notes
 
@@ -69,9 +69,9 @@ timestamp), then POSTs to `<baseUrl>/api/extension/submission-event` with
 
 ## Future work
 
-- A first-class settings UI in Web LearnHub for minting + revoking pairing tokens
+- A first-class settings UI in Web AlgoTalk for minting + revoking pairing tokens
 - Backend `POST /api/extension/submission-event` route that authenticates by
-  `X-LearnHub-Token`, looks up the userId, and routes the event to the existing
+  `X-AlgoTalk-Token`, looks up the userId, and routes the event to the existing
   live-contest tracker's submission merge path
 - HackerRank + HackerEarth + GFG content scripts (lower priority — those
   platforms' UIs are less standardized)

@@ -84,7 +84,11 @@ Return STRICT JSON (no prose, no fences):
     }
   ],
   "predictedRatingChange": "+12 to +18",
-  "nextContestRecommendation": "Codeforces Round (Div 3) — good rating fit"
+  "nextContestRecommendation": "Codeforces Round (Div 3) — good rating fit",
+  "resources": [
+    { "type": "article|video|blog|docs|repo|problem|course",
+      "title": "string", "url": "https://...", "topic": "short tag", "why": "1 sentence on why for THIS contest" }
+  ]
 }
 
 RULES:
@@ -92,5 +96,10 @@ RULES:
 - Don't invent problems for the practice plan — use real platforms; if you don't have a specific URL, use the platform's problemset search URL.
 - 7-day practice plan: 1-2 problems per day, total 10-15 problems, all aligned to the weaknesses observed THIS contest.
 - whatYouDidWell: 1-3 items. whereYouStruggled: up to 4. howToImprove: up to 4. whatToLearnNext: up to 3.
-- If rank is missing or all problems were not attempted, infer best guesses but say so explicitly.`;
+- If rank is missing or all problems were not attempted, infer best guesses but say so explicitly.
+
+For \`resources\`: 3-6 high-quality learning resources targeted at the SPECIFIC weaknesses you identified (greedy exchange argument, segment trees, etc.) OR — if the user solved everything cleanly — pointing at the *next* skill ceiling (binary lifting, FFT, etc.).
+- Only use these hosts: youtube.com, leetcode.com, codeforces.com, codechef.com, atcoder.jp, hackerrank.com, geeksforgeeks.org, cp-algorithms.com, usaco.guide, cses.fi, dev.to, medium.com, freecodecamp.org, github.com, stackoverflow.com, en.wikipedia.org, neetcode.io, developer.mozilla.org, docs.python.org, cppreference.com. Anything else is dropped.
+- Don't hallucinate URLs. If you're not confident the URL is real, omit the item — the sanitizer drops bare-host links anyway.
+- For unsolved problems, prefer editorial blog posts and YouTube walkthroughs. For accepted-but-rough submissions, prefer optimization deep-dives.`;
 }

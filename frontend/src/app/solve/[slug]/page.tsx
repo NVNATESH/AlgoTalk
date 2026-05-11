@@ -5,12 +5,15 @@ import type { editor as MonacoTypes } from 'monaco-editor';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import {
   ArrowLeft,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
   Loader2,
+  Maximize2,
+  Minimize2,
   Play,
   Send,
   Sparkles,
@@ -58,7 +61,6 @@ export default function SolvePage() {
   const [code, setCode] = useState('');
   const [leftTab, setLeftTab] = useState<LeftTab>('description');
   const [bottomTab, setBottomTab] = useState<BottomTab>('testcase');
-  const [bottomCollapsed, setBottomCollapsed] = useState(false);
 
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -67,6 +69,8 @@ export default function SolvePage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   const [aiOpen, setAiOpen] = useState(false);
+  // Editor fullscreen toggle (hides description + bottom panel for distraction-free coding).
+  const [editorFullscreen, setEditorFullscreen] = useState(false);
 
   // Active testcase index for the testcase tab
   const [activeTestIdx, setActiveTestIdx] = useState(0);
@@ -144,8 +148,6 @@ export default function SolvePage() {
   const handleRun = async () => {
     if (!problem) return;
     setRunning(true);
-    setBottomTab('result');
-    setBottomCollapsed(false);
     try {
       const body: Record<string, unknown> = { language, code };
       if (customMode && customStdin.trim()) body.customStdin = customStdin;
@@ -156,6 +158,7 @@ export default function SolvePage() {
       });
       setRunResult(r.result);
       setSubmission(null);
+      setBottomTab('result');
       if (r.result.mode === 'tests') {
         if (r.result.passed === r.result.total)
           toast.success(`✓ Passed ${r.result.passed}/${r.result.total} visible tests`);
@@ -172,7 +175,6 @@ export default function SolvePage() {
     if (!problem) return;
     setSubmitting(true);
     setBottomTab('result');
-    setBottomCollapsed(false);
     try {
       const r = await api<{ submission: Submission; creditsRemaining?: number }>(
         `/problems/${problem.slug}/submit`,
@@ -260,122 +262,160 @@ export default function SolvePage() {
         </button>
       </div>
 
-      <div className="grid h-[calc(100vh-9rem)] grid-cols-1 gap-3 lg:grid-cols-2">
-        {/* LEFT: Description / Submissions */}
-        <section className="glass flex min-h-0 flex-col overflow-hidden">
+      {/*
+        Resizable VSCode-style layout (lg+). Sizes persist per user via the
+        `autoSaveId` prop on each PanelGroup — react-resizable-panels writes
+        them to localStorage so reloads/return-visits keep the user's chosen
+        proportions. Mobile (<lg) keeps the original stacked layout because
+        resizable panels don't compose well in narrow viewports.
+      */}
+      <div className="hidden h-[calc(100vh-9rem)] lg:block">
+        {editorFullscreen ? (
+          // Fullscreen mode: only the editor + tests stack, no description.
+          <PanelGroup direction="vertical" autoSaveId="learnhub.solve.v.full">
+            <Panel defaultSize={75} minSize={20}>
+              <EditorCard
+                language={language}
+                setLanguage={setLanguage}
+                resetCode={resetCode}
+                handleRun={handleRun}
+                handleSubmit={handleSubmit}
+                running={running}
+                submitting={submitting}
+                editorFullscreen={editorFullscreen}
+                setEditorFullscreen={setEditorFullscreen}
+                code={code}
+                setCode={setCode}
+                editorRef={editorRef}
+                setEditor={setEditor}
+              />
+            </Panel>
+            <ResizeHandle direction="vertical" />
+            <Panel defaultSize={25} minSize={6} collapsible collapsedSize={4}>
+              <BottomPanel
+                bottomTab={bottomTab}
+                setBottomTab={setBottomTab}
+                problem={problem}
+                activeTestIdx={activeTestIdx}
+                setActiveTestIdx={setActiveTestIdx}
+                customMode={customMode}
+                setCustomMode={setCustomMode}
+                customStdin={customStdin}
+                setCustomStdin={setCustomStdin}
+                runResult={runResult}
+                submission={submission}
+                jumpToLine={jumpToLine}
+                setReviewComments={setReviewComments}
+              />
+            </Panel>
+          </PanelGroup>
+        ) : (
+          <PanelGroup direction="horizontal" autoSaveId="learnhub.solve.h">
+            <Panel defaultSize={42} minSize={18} collapsible collapsedSize={0}>
+              <DescriptionCard
+                leftTab={leftTab}
+                setLeftTab={setLeftTab}
+                problem={problem}
+                submissions={submissions}
+              />
+            </Panel>
+            <ResizeHandle direction="horizontal" />
+            <Panel defaultSize={58} minSize={30}>
+              <PanelGroup direction="vertical" autoSaveId="learnhub.solve.v">
+                <Panel defaultSize={68} minSize={20}>
+                  <EditorCard
+                    language={language}
+                    setLanguage={setLanguage}
+                    resetCode={resetCode}
+                    handleRun={handleRun}
+                    handleSubmit={handleSubmit}
+                    running={running}
+                    submitting={submitting}
+                    editorFullscreen={editorFullscreen}
+                    setEditorFullscreen={setEditorFullscreen}
+                    code={code}
+                    setCode={setCode}
+                    editorRef={editorRef}
+                    setEditor={setEditor}
+                  />
+                </Panel>
+                <ResizeHandle direction="vertical" />
+                <Panel defaultSize={32} minSize={6} collapsible collapsedSize={4}>
+                  <BottomPanel
+                    bottomTab={bottomTab}
+                    setBottomTab={setBottomTab}
+                    problem={problem}
+                    activeTestIdx={activeTestIdx}
+                    setActiveTestIdx={setActiveTestIdx}
+                    customMode={customMode}
+                    setCustomMode={setCustomMode}
+                    customStdin={customStdin}
+                    setCustomStdin={setCustomStdin}
+                    runResult={runResult}
+                    submission={submission}
+                    jumpToLine={jumpToLine}
+                    setReviewComments={setReviewComments}
+                  />
+                </Panel>
+              </PanelGroup>
+            </Panel>
+          </PanelGroup>
+        )}
+      </div>
+
+      {/* Mobile fallback: stacked single-column. No resize handles — the
+          screen is too narrow for them to be useful, and react-resizable-panels
+          would compete with normal scroll on touch. */}
+      <div className="flex flex-col gap-3 lg:hidden">
+        <div className="glass flex max-h-[40vh] flex-col overflow-hidden">
           <div className="flex items-center gap-1 border-b border-white/5 px-2 py-2">
             <TabBtn active={leftTab === 'description'} onClick={() => setLeftTab('description')}>
               Description
             </TabBtn>
             <TabBtn active={leftTab === 'submissions'} onClick={() => setLeftTab('submissions')}>
               Submissions
-              {submissions.length > 0 && <span className="ml-1 text-xs text-zinc-500">({submissions.length})</span>}
             </TabBtn>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-            {leftTab === 'description' ? (
-              <DescriptionTab problem={problem} />
-            ) : (
-              <SubmissionsTab submissions={submissions} />
-            )}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {leftTab === 'description'
+              ? <DescriptionTab problem={problem} />
+              : <SubmissionsTab submissions={submissions} />}
           </div>
-        </section>
-
-        {/* RIGHT: Editor + bottom tests/results */}
-        <section className="flex min-h-0 flex-col gap-3">
-          {/* Editor card */}
-          <div className="glass flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex items-center justify-between gap-2 border-b border-white/5 px-3 py-2">
-              <div className="flex items-center gap-2">
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as Language)}
-                  className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-violet/40"
-                >
-                  {Object.entries(LANG_LABEL).map(([k, v]) => (
-                    <option key={k} value={k} className="bg-bg-card">
-                      {v}
-                    </option>
-                  ))}
-                </select>
-                <button onClick={resetCode} className="text-xs text-zinc-500 hover:text-zinc-200">
-                  Reset
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleRun}
-                  disabled={running || submitting}
-                  className="btn-ghost text-xs"
-                >
-                  {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                  Run
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={running || submitting}
-                  className="btn-primary text-xs"
-                >
-                  {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  Submit
-                </button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1">
-              <CodeEditor
-                language={language}
-                value={code}
-                onChange={setCode}
-                onMount={(ed) => {
-                  editorRef.current = ed;
-                  setEditor(ed);
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Bottom panel: testcases / results */}
-          <div className={cn('glass flex flex-col overflow-hidden transition-all', bottomCollapsed ? 'h-12' : 'h-[260px]')}>
-            <div className="flex items-center gap-1 border-b border-white/5 px-2 py-2">
-              <TabBtn active={bottomTab === 'testcase'} onClick={() => { setBottomTab('testcase'); setBottomCollapsed(false); }}>
-                Testcase
-              </TabBtn>
-              <TabBtn active={bottomTab === 'result'} onClick={() => { setBottomTab('result'); setBottomCollapsed(false); }}>
-                Result
-              </TabBtn>
-              <button
-                onClick={() => setBottomCollapsed((v) => !v)}
-                className="ml-auto rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
-                aria-label="Toggle"
-              >
-                {bottomCollapsed ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
-            </div>
-            {!bottomCollapsed && (
-              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-                {bottomTab === 'testcase' ? (
-                  <TestcasePanel
-                    visibleTests={problem.visibleTestCases}
-                    activeIdx={activeTestIdx}
-                    setActiveIdx={setActiveTestIdx}
-                    customMode={customMode}
-                    setCustomMode={setCustomMode}
-                    customStdin={customStdin}
-                    setCustomStdin={setCustomStdin}
-                  />
-                ) : (
-                  <ResultPanel
-                    runResult={runResult}
-                    submission={submission}
-                    slug={problem.slug}
-                    onJumpToLine={jumpToLine}
-                    onReviewCommentsChange={setReviewComments}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-        </section>
+        </div>
+        <div className="glass flex h-[55vh] flex-col overflow-hidden">
+          <EditorCard
+            language={language}
+            setLanguage={setLanguage}
+            resetCode={resetCode}
+            handleRun={handleRun}
+            handleSubmit={handleSubmit}
+            running={running}
+            submitting={submitting}
+            editorFullscreen={false}
+            setEditorFullscreen={setEditorFullscreen}
+            code={code}
+            setCode={setCode}
+            editorRef={editorRef}
+            setEditor={setEditor}
+          />
+        </div>
+        <div className="glass flex h-[35vh] flex-col overflow-hidden">
+          <BottomPanel
+            bottomTab={bottomTab}
+            setBottomTab={setBottomTab}
+            problem={problem}
+            activeTestIdx={activeTestIdx}
+            setActiveTestIdx={setActiveTestIdx}
+            customMode={customMode}
+            setCustomMode={setCustomMode}
+            customStdin={customStdin}
+            setCustomStdin={setCustomStdin}
+            runResult={runResult}
+            submission={submission}
+            jumpToLine={jumpToLine}
+            setReviewComments={setReviewComments}
+          />
+        </div>
       </div>
 
       {aiOpen && (
@@ -398,6 +438,169 @@ export default function SolvePage() {
         </motion.aside>
       )}
     </AppShell>
+  );
+}
+
+// 4px-wide draggable bar between panels. Direction matches the parent
+// PanelGroup so the cursor and active-state visuals make sense.
+function ResizeHandle({ direction }: { direction: 'horizontal' | 'vertical' }) {
+  return (
+    <PanelResizeHandle
+      className={cn(
+        'group relative flex items-center justify-center bg-transparent transition-colors',
+        direction === 'horizontal'
+          ? 'mx-1 w-1.5 cursor-col-resize'
+          : 'my-1 h-1.5 cursor-row-resize'
+      )}
+    >
+      <div
+        className={cn(
+          'rounded-full bg-white/5 transition-colors group-hover:bg-accent-violet/40 group-data-[resize-handle-active=true]:bg-accent-violet',
+          direction === 'horizontal' ? 'h-12 w-1' : 'h-1 w-12'
+        )}
+      />
+    </PanelResizeHandle>
+  );
+}
+
+interface EditorCardProps {
+  language: Language;
+  setLanguage: (l: Language) => void;
+  resetCode: () => void;
+  handleRun: () => void;
+  handleSubmit: () => void;
+  running: boolean;
+  submitting: boolean;
+  editorFullscreen: boolean;
+  setEditorFullscreen: (fn: (v: boolean) => boolean) => void;
+  code: string;
+  setCode: (c: string) => void;
+  editorRef: React.MutableRefObject<MonacoTypes.IStandaloneCodeEditor | null>;
+  setEditor: (ed: MonacoTypes.IStandaloneCodeEditor | null) => void;
+}
+
+function EditorCard(props: EditorCardProps) {
+  const { language, setLanguage, resetCode, handleRun, handleSubmit, running, submitting, editorFullscreen, setEditorFullscreen, code, setCode, editorRef, setEditor } = props;
+  return (
+    <div className="glass flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex items-center justify-between gap-2 border-b border-white/5 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as Language)}
+            className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-zinc-100 focus:outline-none focus:ring-2 focus:ring-accent-violet/40"
+          >
+            {Object.entries(LANG_LABEL).map(([k, v]) => (
+              <option key={k} value={k} className="bg-bg-card">{v}</option>
+            ))}
+          </select>
+          <button onClick={resetCode} className="text-xs text-zinc-500 hover:text-zinc-200">Reset</button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setEditorFullscreen((v) => !v)}
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-white/5 hover:text-zinc-200"
+            title={editorFullscreen ? 'Exit fullscreen editor' : 'Fullscreen editor'}
+          >
+            {editorFullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+          </button>
+          <button onClick={handleRun} disabled={running || submitting} className="btn-ghost text-xs">
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+            Run
+          </button>
+          <button onClick={handleSubmit} disabled={running || submitting} className="btn-primary text-xs">
+            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            Submit
+          </button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        <CodeEditor
+          language={language}
+          value={code}
+          onChange={setCode}
+          onMount={(ed) => {
+            editorRef.current = ed;
+            setEditor(ed);
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface BottomPanelProps {
+  bottomTab: BottomTab;
+  setBottomTab: (t: BottomTab) => void;
+  problem: ProblemDetail;
+  activeTestIdx: number;
+  setActiveTestIdx: (n: number) => void;
+  customMode: boolean;
+  setCustomMode: (v: boolean) => void;
+  customStdin: string;
+  setCustomStdin: (v: string) => void;
+  runResult: RunResult | null;
+  submission: Submission | null;
+  jumpToLine: (line: number) => void;
+  setReviewComments: (c: ReviewLineComment[]) => void;
+}
+
+function BottomPanel(p: BottomPanelProps) {
+  return (
+    <div className="glass flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex items-center gap-1 border-b border-white/5 px-2 py-2">
+        <TabBtn active={p.bottomTab === 'testcase'} onClick={() => p.setBottomTab('testcase')}>Testcase</TabBtn>
+        <TabBtn active={p.bottomTab === 'result'} onClick={() => p.setBottomTab('result')}>Result</TabBtn>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {p.bottomTab === 'testcase' ? (
+          <TestcasePanel
+            visibleTests={p.problem.visibleTestCases}
+            activeIdx={p.activeTestIdx}
+            setActiveIdx={p.setActiveTestIdx}
+            customMode={p.customMode}
+            setCustomMode={p.setCustomMode}
+            customStdin={p.customStdin}
+            setCustomStdin={p.setCustomStdin}
+          />
+        ) : (
+          <ResultPanel
+            runResult={p.runResult}
+            submission={p.submission}
+            slug={p.problem.slug}
+            onJumpToLine={p.jumpToLine}
+            onReviewCommentsChange={p.setReviewComments}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DescriptionCard({
+  leftTab,
+  setLeftTab,
+  problem,
+  submissions,
+}: {
+  leftTab: LeftTab;
+  setLeftTab: (t: LeftTab) => void;
+  problem: ProblemDetail;
+  submissions: Submission[];
+}) {
+  return (
+    <section className="glass flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex items-center gap-1 border-b border-white/5 px-2 py-2">
+        <TabBtn active={leftTab === 'description'} onClick={() => setLeftTab('description')}>Description</TabBtn>
+        <TabBtn active={leftTab === 'submissions'} onClick={() => setLeftTab('submissions')}>
+          Submissions
+          {submissions.length > 0 && <span className="ml-1 text-xs text-zinc-500">({submissions.length})</span>}
+        </TabBtn>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+        {leftTab === 'description' ? <DescriptionTab problem={problem} /> : <SubmissionsTab submissions={submissions} />}
+      </div>
+    </section>
   );
 }
 

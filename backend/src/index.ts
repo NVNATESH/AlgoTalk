@@ -2,6 +2,7 @@ import http from 'node:http';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import compression from 'compression';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 
@@ -47,10 +48,11 @@ async function bootstrap() {
       credentials: true,
     })
   );
+  app.use(compression({ threshold: 1024 }));
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
-  app.use(morgan('dev'));
+  if (!isProd) app.use(morgan('dev'));
   app.use(generalLimiter);
 
   app.use('/api', apiRoutes);
@@ -65,7 +67,7 @@ async function bootstrap() {
   attachNotifyServer(server);
 
   server.listen(env.PORT, () => {
-    logger.info(`🚀 LearnHub API listening on http://localhost:${env.PORT}`);
+    logger.info(`🚀 AlgoTalk API listening on http://localhost:${env.PORT}`);
     logger.info(`   CORS origin: ${env.CLIENT_URL}`);
     logger.info(`   Email driver: ${env.EMAIL_PROVIDER}`);
   });

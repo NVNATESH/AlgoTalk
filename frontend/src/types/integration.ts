@@ -20,6 +20,10 @@ export interface Integration {
   lastSyncError: string;
   syncCount: number;
   submissionCount: number;
+  // Distinct accepted problems on this platform. Computed at sync time as
+  // MAX(local distinct AC, profile-reported total). This is the headline
+  // number shown on the integration card / stats — not raw submissions.
+  solvedCount: number;
   isActive: boolean;
   createdAt: string;
 }

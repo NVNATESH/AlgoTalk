@@ -6,6 +6,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { logger } from '../config/logger.js';
 import { geminiJSON } from './gemini.js';
 import { contestAnalysisPrompt } from '../prompts/contestAnalysis.js';
+import { sanitizeResources } from './learningResourceService.js';
 import { syncUpcomingContests } from './contestAggregator.js';
 import { computeOverview } from './analyzerService.js';
 
@@ -229,6 +230,9 @@ export async function generateContestReport(userId: string, contestId: string, o
       typeof aiOut.nextContestRecommendation === 'string'
         ? aiOut.nextContestRecommendation.slice(0, 200)
         : '',
+    // Learning resources go through the same allowlist + dedupe used by code
+    // review so a hallucinated link in one place can never leak into another.
+    resources: sanitizeResources(aiOut.resources, { max: 6 }),
   };
 
   const saved = await ContestReport.findOneAndUpdate(

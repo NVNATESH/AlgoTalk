@@ -9,6 +9,64 @@ import { ApiError } from '../utils/ApiError.js';
 
 const HEATMAP_DAYS = 365;
 
+/**
+ * Known programming language patterns. External extractors sometimes
+ * misidentify problem slugs (e.g. "BIGNAME") as languages — this whitelist
+ * filters those out.
+ */
+const KNOWN_LANGUAGES = new Set([
+  'python', 'python3', 'python2', 'py', 'pypy', 'pypy3',
+  'javascript', 'js', 'node', 'nodejs',
+  'typescript', 'ts',
+  'java',
+  'cpp', 'c++', 'c++14', 'c++17', 'c++20', 'c++23',
+  'c', 'c11', 'c99',
+  'go', 'golang',
+  'rust',
+  'ruby',
+  'kotlin',
+  'scala',
+  'swift',
+  'php',
+  'dart',
+  'haskell',
+  'perl',
+  'bash', 'sh',
+  'r',
+  'clojure',
+  'erlang',
+  'fortran',
+  'pascal',
+  'lua',
+  'csharp', 'c#',
+]);
+
+const LANG_NORMALIZE: Record<string, string> = {
+  'python3': 'python', 'python2': 'python', 'py': 'python', 'pypy': 'python', 'pypy3': 'python',
+  'js': 'javascript', 'node': 'javascript', 'nodejs': 'javascript',
+  'ts': 'typescript',
+  'c++': 'cpp', 'c++14': 'cpp', 'c++17': 'cpp', 'c++20': 'cpp', 'c++23': 'cpp',
+  'c11': 'c', 'c99': 'c',
+  'golang': 'go',
+  'sh': 'bash',
+  'csharp': 'c#',
+};
+
+const LANG_CLEANUP_RE = /[^a-z0-9+#]/g;
+const LANG_PREFIX_RE = /^(c\+\+|python|java|pyth|gnu\s*c|gcc|g\+\+|clang|rust|go|ruby|kotlin|scala|swift|php|perl|haskell|javascript|typescript|bash|r$)/i;
+
+function isKnownLanguage(raw: string): boolean {
+  const key = raw.toLowerCase().replace(LANG_CLEANUP_RE, '');
+  if (KNOWN_LANGUAGES.has(key)) return true;
+  if (LANG_PREFIX_RE.test(raw)) return true;
+  return false;
+}
+
+function normalizeLanguage(raw: string): string {
+  const key = raw.toLowerCase().replace(LANG_CLEANUP_RE, '');
+  return LANG_NORMALIZE[key] ?? (KNOWN_LANGUAGES.has(key) ? key : raw.toLowerCase());
+}
+
 const DIFFICULTY_MAP: Record<string, 'Easy' | 'Medium' | 'Hard' | null> = {
   easy: 'Easy',
   medium: 'Medium',
@@ -167,7 +225,7 @@ export async function getProfileByUsername(
   for (const e of extractedRaw) {
     const key = `${e.platform}:${e.problemId}`;
     externalPlatformsSet.add(e.platform);
-    if (e.language) langCount.set(e.language, (langCount.get(e.language) ?? 0) + 1);
+    if (e.language && isKnownLanguage(e.language)) langCount.set(normalizeLanguage(e.language), (langCount.get(normalizeLanguage(e.language)) ?? 0) + 1);
     if (e.status === 'accepted') {
       externalAcceptedTotal++;
       if (!externalAcceptedKeys.has(key)) {

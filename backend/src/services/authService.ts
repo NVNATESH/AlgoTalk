@@ -51,6 +51,20 @@ export async function register(input: {
   const link = `${env.CLIENT_URL}/verify?token=${rawToken}`;
   await mailer.sendVerification(email, user.name, link);
 
+  // Ping Power Automate webhook (if configured) for admin notifications
+  if (env.POWER_AUTOMATE_WEBHOOK_URL) {
+    fetch(env.POWER_AUTOMATE_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: user.name,
+        email: user.email,
+        userId: String(user._id),
+        registeredAt: new Date().toISOString(),
+      }),
+    }).catch(() => {}); // fire-and-forget, never block registration
+  }
+
   return publicUser(user);
 }
 
@@ -211,14 +225,18 @@ export async function updatePreferences(
   prefs: {
     theme?: 'dark' | 'light';
     notifications?: boolean;
+    emailNotifications?: boolean;
     soundEffects?: boolean;
     voiceMuteByDefault?: boolean;
     notificationPrefs?: Record<string, boolean>;
+    emailNotificationPrefs?: Record<string, boolean>;
   }
 ) {
   const set: Record<string, unknown> = {};
   if (prefs.theme !== undefined) set['preferences.theme'] = prefs.theme;
   if (prefs.notifications !== undefined) set['preferences.notifications'] = prefs.notifications;
+  if (prefs.emailNotifications !== undefined)
+    set['preferences.emailNotifications'] = prefs.emailNotifications;
   if (prefs.soundEffects !== undefined) set['preferences.soundEffects'] = prefs.soundEffects;
   if (prefs.voiceMuteByDefault !== undefined)
     set['preferences.voiceMuteByDefault'] = prefs.voiceMuteByDefault;
@@ -227,6 +245,11 @@ export async function updatePreferences(
   if (prefs.notificationPrefs) {
     for (const [k, v] of Object.entries(prefs.notificationPrefs)) {
       set[`preferences.notificationPrefs.${k}`] = v;
+    }
+  }
+  if (prefs.emailNotificationPrefs) {
+    for (const [k, v] of Object.entries(prefs.emailNotificationPrefs)) {
+      set[`preferences.emailNotificationPrefs.${k}`] = v;
     }
   }
   if (Object.keys(set).length === 0) return getCurrentUser(userId);

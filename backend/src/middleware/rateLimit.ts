@@ -18,7 +18,7 @@ export const strictLimiter = rateLimit({
 
 export const generalLimiter = rateLimit({
   windowMs: 60 * 1000,
-  limit: 120,
+  limit: 600,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
 });

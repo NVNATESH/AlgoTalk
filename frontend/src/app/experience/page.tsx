@@ -169,6 +169,7 @@ export default function ExperiencePage() {
     const tiltCleanups = Array.from(page.querySelectorAll<HTMLElement>('[data-tilt]')).map((el) => setTilt(el));
 
     const revealTargets = Array.from(page.querySelectorAll<HTMLElement>('[data-reveal]'));
+    revealTargets.forEach((target) => target.classList.add(styles.revealInit));
     const revealObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {

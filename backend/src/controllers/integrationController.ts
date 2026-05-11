@@ -78,3 +78,49 @@ export const heatmap = asyncHandler(async (req, res) => {
   const out = await svc.getCrossPlatformHeatmap(req.userId, days);
   res.json(out);
 });
+
+/**
+ * Aggregated sync-health snapshot — called by the integrations page banner +
+ * the rewind dashboard to surface "last synced" / "stale" / "needs reauth"
+ * states across every connected platform.
+ */
+export const syncHealth = asyncHandler(async (req, res) => {
+  if (!req.userId) throw ApiError.unauthorized();
+  const list = await svc.listIntegrations(req.userId);
+  const STALE_HOURS = 12;
+  const now = Date.now();
+  const items = list.map((i: any) => {
+    const last = i.lastSyncAt ? new Date(i.lastSyncAt).getTime() : null;
+    const ageHours = last ? (now - last) / 3_600_000 : null;
+    const status: 'fresh' | 'stale' | 'failing' | 'never' =
+      i.lastSyncStatus === 'failed'
+        ? 'failing'
+        : !last
+          ? 'never'
+          : ageHours !== null && ageHours > STALE_HOURS
+            ? 'stale'
+            : 'fresh';
+    return {
+      platform: i.platform,
+      handle: i.handle,
+      isActive: i.isActive,
+      lastSyncAt: i.lastSyncAt ?? null,
+      lastSyncStatus: i.lastSyncStatus ?? null,
+      ageHours: ageHours !== null ? Math.round(ageHours * 10) / 10 : null,
+      status,
+    };
+  });
+  const failing = items.filter((i) => i.status === 'failing').length;
+  const stale = items.filter((i) => i.status === 'stale').length;
+  res.json({
+    items,
+    summary: {
+      total: items.length,
+      fresh: items.filter((i) => i.status === 'fresh').length,
+      stale,
+      failing,
+      never: items.filter((i) => i.status === 'never').length,
+    },
+    healthy: failing === 0 && stale === 0,
+  });
+});

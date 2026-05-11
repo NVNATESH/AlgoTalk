@@ -7,6 +7,8 @@ import * as ai from '../services/analyzerAiService.js';
 export const overview = asyncHandler(async (req, res) => {
   if (!req.userId) throw ApiError.unauthorized();
   const overview = await svc.computeOverview(req.userId);
+  // Browser may revalidate with ETag (set automatically by Express).
+  res.setHeader('Cache-Control', 'private, max-age=30');
   res.json({ overview });
 });
 

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Circle, Search, AlertCircle, Filter, Building2 } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
+import { ProblemsHeroCards } from '@/components/problem/ProblemsHeroCards';
 import { api, ApiError } from '@/lib/api';
 import type { Difficulty, ProblemSummary, UserStatus } from '@/types/problem';
 import { cn } from '@/lib/utils';
@@ -84,6 +85,9 @@ export default function ProblemsPage() {
           <Building2 className="h-4 w-4" /> Browse by company
         </Link>
       </header>
+
+      {/* ── Hero Cards: Interview / Quests / Recommended Goals ── */}
+      <ProblemsHeroCards />
 
       <div className="mb-5 flex flex-col gap-3">
         {/* Search + Filters row */}
@@ -178,13 +182,22 @@ export default function ProblemsPage() {
   );
 }
 
-function ProblemRow({ problem: p, index }: { problem: ProblemSummary; index: number }) {
+const ProblemRow = memo(function ProblemRow({
+  problem: p,
+  index,
+}: {
+  problem: ProblemSummary;
+  index: number;
+}) {
+  // Cap stagger at ~250ms so long lists don't drip in for seconds.
+  const delay = Math.min(index * 0.015, 0.25);
   return (
     <motion.tr
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.02 }}
-      className="border-b border-white/5 transition hover:bg-white/[0.03]"
+      transition={{ delay, duration: 0.18 }}
+      whileHover={{ backgroundColor: 'rgba(255,255,255,0.04)', x: 2 }}
+      className="border-b border-white/5 transition"
     >
       <td className="px-4 py-3">
         {p.userStatus === 'solved' ? (
@@ -241,7 +254,7 @@ function ProblemRow({ problem: p, index }: { problem: ProblemSummary; index: num
       </td>
     </motion.tr>
   );
-}
+});
 
 function SkeletonTable() {
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -54,7 +54,7 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-export function StartInterviewDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function StartInterviewDialog({ open, onClose, initialTopic }: { open: boolean; onClose: () => void; initialTopic?: string }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const {
@@ -66,6 +66,13 @@ export function StartInterviewDialog({ open, onClose }: { open: boolean; onClose
   } = useForm<FormValues>({
     defaultValues: { difficulty: 'Medium', role: 'SDE-2 (mid)' },
   });
+
+  // Pre-fill topic when provided from question bank
+  useEffect(() => {
+    if (initialTopic && open) {
+      setValue('topic', initialTopic);
+    }
+  }, [initialTopic, open, setValue]);
 
   const difficulty = watch('difficulty');
   const role = watch('role');

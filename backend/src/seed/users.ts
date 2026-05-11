@@ -32,6 +32,14 @@ const TEST_USERS: SeedUser[] = [
     bio: 'Primary test account — admin role.',
   },
   {
+    name: 'Goal Admin',
+    username: 'goal_admin',
+    email: 'goal_admin@learnhub.local',
+    password: 'goaladminhunter2',
+    role: 'admin',
+    bio: 'Admin account for managing recommended goal templates, modules, and topics.',
+  },
+  {
     name: 'Partner',
     username: 'partner',
     email: 'partner@learnhub.local',
@@ -53,24 +61,36 @@ async function main() {
   await connectDB();
 
   for (const u of TEST_USERS) {
-    const existing = await User.findOne({
-      $or: [{ email: u.email.toLowerCase() }, { username: u.username.toLowerCase() }],
-    });
+    const email = u.email.toLowerCase();
+    const username = u.username.toLowerCase();
+    const existing = await User.findOne({ $or: [{ email }, { username }] });
     if (existing) {
+      const conflict = await User.findOne({
+        _id: { $ne: existing._id },
+        $or: [{ email }, { username }],
+      }).lean();
+      if (conflict) {
+        throw new Error(`cannot reset ${username}: desired username/email belongs to another user`);
+      }
+
       // Reset password + verify status so the user is always usable after seed.
+      existing.name = u.name;
+      existing.username = username;
+      existing.email = email;
       existing.passwordHash = await hashPassword(u.password);
       existing.isVerified = true;
       existing.verificationToken = undefined;
       existing.verificationExpires = undefined;
       if (u.role) existing.role = u.role;
+      if (u.bio !== undefined) existing.bio = u.bio;
       await existing.save();
-      logger.info(`reset existing user: ${u.username}`);
+      logger.info(`reset existing user: ${username}`);
       continue;
     }
     await User.create({
       name: u.name,
-      username: u.username.toLowerCase(),
-      email: u.email.toLowerCase(),
+      username,
+      email,
       passwordHash: await hashPassword(u.password),
       isVerified: true,
       role: u.role ?? 'user',

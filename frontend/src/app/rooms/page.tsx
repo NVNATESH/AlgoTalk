@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ import type { Room } from '@/types/room';
 import { cn } from '@/lib/utils';
 
 const LANGUAGES = ['javascript', 'python', 'java', 'cpp', 'plaintext'] as const;
-const ICONS = ['🤝', '🧑‍💻', '🧠', '🚀', '🔥', '📝', '🎯', '🌐'];
+const ICONS = ['ðŸ¤', 'ðŸ§‘â€ðŸ’»', 'ðŸ§ ', 'ðŸš€', 'ðŸ”¥', 'ðŸ“', 'ðŸŽ¯', 'ðŸŒ'];
 
 export default function RoomsListPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -51,7 +51,7 @@ export default function RoomsListPage() {
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-accent-violet">
             <Users className="h-3 w-3" /> Collab Workspace
           </div>
-          <h1 className="mt-1 font-display text-3xl font-bold md:text-4xl">🤝 Rooms</h1>
+          <h1 className="mt-1 font-display text-3xl font-bold md:text-4xl">ðŸ¤ Rooms</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Real-time pair-coding with Yjs CRDT. 3 writers, 57 read-only spectators.
           </p>
@@ -114,7 +114,7 @@ function RoomCard({ room, index }: { room: Room; index: number }) {
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: Math.min(index * 0.03, 0.25) }}
     >
       <Link href={`/rooms/${room.id}`} className="glass block p-4 transition hover:border-white/20">
         <div className="flex items-start justify-between gap-2">
@@ -126,11 +126,11 @@ function RoomCard({ room, index }: { room: Room; index: number }) {
               <h3 className="font-display text-base font-semibold leading-tight">{room.name}</h3>
               <div className="mt-0.5 flex items-center gap-2 text-xs text-zinc-500">
                 <RolePill role={room.myRole} isAsker={room.isAsker} />
-                <span>·</span>
+                <span>Â·</span>
                 <span>
                   {room.writerCount}/{room.maxWriters} writers
                 </span>
-                <span>·</span>
+                <span>Â·</span>
                 <span>{room.readOnlyCount} viewers</span>
               </div>
             </div>
@@ -183,7 +183,7 @@ function EmptyState({ onCreate, onJoin }: { onCreate: () => void; onJoin: () => 
       </div>
       <h3 className="font-display text-2xl font-bold">Pair-code in real time</h3>
       <p className="mt-2 max-w-md text-sm text-zinc-400">
-        Create a room and invite up to 60 people. CRDT-powered editor — every keystroke syncs
+        Create a room and invite up to 60 people. CRDT-powered editor â€” every keystroke syncs
         instantly. The asker controls who has write access.
       </p>
       <div className="mt-6 flex gap-2">
@@ -209,7 +209,7 @@ function CreateRoomDialog({
 }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('🤝');
+  const [icon, setIcon] = useState('ðŸ¤');
   const [language, setLanguage] = useState<string>('javascript');
   const [submitting, setSubmitting] = useState(false);
 
@@ -217,7 +217,7 @@ function CreateRoomDialog({
     if (open) {
       setName('');
       setDescription('');
-      setIcon('🤝');
+      setIcon('ðŸ¤');
       setLanguage('javascript');
     }
   }, [open]);

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
 import * as svc from '../services/problemAiService.js';
 
 const langSchema = z.enum(['python', 'javascript', 'java', 'cpp']);
@@ -43,4 +44,19 @@ export const explainCode = asyncHandler(async (req, res) => {
 export const optimize = asyncHandler(async (req, res) => {
   const out = await svc.generateOptimization(req.body.slug, req.body.code, req.body.language);
   res.json(out);
+});
+
+export const upsolveSchema = z.object({
+  slug: z.string().min(1),
+  code: z.string().max(100_000).optional(),
+  language: langSchema.optional(),
+});
+
+export const upsolve = asyncHandler(async (req, res) => {
+  if (!req.userId) throw ApiError.unauthorized();
+  const out = await svc.generateUpsolvedFeedback(req.userId, req.body.slug, {
+    code: req.body.code,
+    language: req.body.language,
+  });
+  res.json({ feedback: out });
 });

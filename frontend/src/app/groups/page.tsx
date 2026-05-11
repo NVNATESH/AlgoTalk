@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -79,7 +79,7 @@ export default function GroupsPage() {
     <AppShell>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-bold md:text-4xl">🏟️ Groups</h1>
+          <h1 className="font-display text-3xl font-bold md:text-4xl">Groups</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Post 24h coding & aptitude challenges. Climb the leaderboard.
           </p>
@@ -207,7 +207,7 @@ function GroupCard({
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: Math.min(index * 0.03, 0.25) }}
       className="glass flex flex-col gap-3 p-4 transition hover:border-white/20"
     >
       <div className="flex items-start justify-between gap-3">
@@ -224,7 +224,7 @@ function GroupCard({
                 <Globe className="h-3 w-3" />
               )}
               <span>{group.privacy}</span>
-              <span>·</span>
+              <span>Â·</span>
               <span>
                 {group.memberCount} member{group.memberCount === 1 ? '' : 's'}
               </span>
@@ -255,7 +255,7 @@ function GroupCard({
 function EmptyState({ tab, onCreate }: { tab: Tab; onCreate: () => void }) {
   return (
     <div className="glass p-10 text-center">
-      <div className="text-5xl">🏟️</div>
+      <div className="text-5xl">ðŸŸï¸</div>
       <h3 className="mt-3 font-display text-lg font-semibold">
         {tab === 'mine' ? 'You\'re not in any groups yet' : 'No public groups match'}
       </h3>
@@ -283,14 +283,14 @@ function CreateGroupDialog({
   const [submitting, setSubmitting] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('👥');
+  const [icon, setIcon] = useState('ðŸ‘¥');
   const [privacy, setPrivacy] = useState<'public' | 'private'>('public');
 
   useEffect(() => {
     if (open) {
       setName('');
       setDescription('');
-      setIcon('👥');
+      setIcon('ðŸ‘¥');
       setPrivacy('public');
     }
   }, [open]);
@@ -323,7 +323,7 @@ function CreateGroupDialog({
         <div>
           <label className="mb-1.5 block text-sm font-medium text-zinc-300">Group icon</label>
           <div className="flex flex-wrap gap-1.5">
-            {['👥', '🧠', '🚀', '🎯', '🔥', '💎', '⚡', '🏆', '🌟', '🦾'].map((e) => (
+            {['ðŸ‘¥', 'ðŸ§ ', 'ðŸš€', 'ðŸŽ¯', 'ðŸ”¥', 'ðŸ’Ž', 'âš¡', 'ðŸ†', 'ðŸŒŸ', 'ðŸ¦¾'].map((e) => (
               <button
                 key={e}
                 type="button"

@@ -16,7 +16,7 @@ export default function Home() {
     <main className="relative min-h-screen overflow-hidden">
       <nav className="relative z-10 flex items-center justify-between px-8 py-6">
         <div className="flex items-center gap-2 font-display text-xl font-bold">
-          <span className="gradient-text">LearnHub</span>
+          <span className="gradient-text">AlgoTalk</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="btn-ghost">

@@ -19,18 +19,22 @@ function chime() {
     if (!_audioCtx) _audioCtx = new Ctx();
     const ctx = _audioCtx;
     const now = ctx.currentTime;
-    [880, 1175].forEach((freq, i) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.frequency.value = freq;
-      o.type = 'sine';
-      g.gain.setValueAtTime(0, now + i * 0.18);
-      g.gain.linearRampToValueAtTime(0.18, now + i * 0.18 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.18 + 0.42);
-      o.connect(g).connect(ctx.destination);
-      o.start(now + i * 0.18);
-      o.stop(now + i * 0.18 + 0.45);
-    });
+    // 5-second repeating alert: 5 two-tone bursts spaced 1 second apart
+    for (let rep = 0; rep < 5; rep++) {
+      const baseTime = now + rep * 1.0;
+      [880, 1175].forEach((freq, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.frequency.value = freq;
+        o.type = 'sine';
+        g.gain.setValueAtTime(0, baseTime + i * 0.18);
+        g.gain.linearRampToValueAtTime(0.22, baseTime + i * 0.18 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, baseTime + i * 0.18 + 0.42);
+        o.connect(g).connect(ctx.destination);
+        o.start(baseTime + i * 0.18);
+        o.stop(baseTime + i * 0.18 + 0.45);
+      });
+    }
   } catch {
     // ignore
   }

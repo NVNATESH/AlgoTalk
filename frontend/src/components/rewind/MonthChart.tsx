@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
@@ -81,7 +81,7 @@ export function MonthChart({ months }: { months: MonthStats[] }) {
                     rx={2}
                     initial={{ y: 10 + barAreaH, height: 0 }}
                     animate={{ y: yCursor, height: segH }}
-                    transition={{ duration: 0.6, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                    transition={{ duration: 0.6, delay: Math.min(i * 0.03, 0.25), ease: [0.16, 1, 0.3, 1] }}
                   />
                 );
               })}

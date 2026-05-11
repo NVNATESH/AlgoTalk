@@ -16,6 +16,7 @@ export interface Room {
   initialContent: string;
   language: string;
   inviteCode?: string;
+  groupId?: string;
   myRole: RoomRole;
   isAsker: boolean;
   expiresAt: string | null;

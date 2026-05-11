@@ -20,6 +20,21 @@ const practiceDaySchema = new Schema(
   { _id: false }
 );
 
+const resourceSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ['article', 'video', 'blog', 'docs', 'repo', 'problem', 'course'],
+      required: true,
+    },
+    title: { type: String, required: true, maxlength: 300 },
+    url: { type: String, required: true, maxlength: 500 },
+    topic: { type: String, default: '', maxlength: 80 },
+    why: { type: String, default: '', maxlength: 240 },
+  },
+  { _id: false }
+);
+
 const contestReportSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
@@ -51,6 +66,7 @@ const contestReportSchema = new Schema(
     practicePlan7Days: { type: [practiceDaySchema], default: [] },
     predictedRatingChange: { type: String, default: '' },
     nextContestRecommendation: { type: String, default: '' },
+    resources: { type: [resourceSchema], default: [] },
 
     generatedBy: { type: String, default: 'gemini-2.5-flash' },
   },
@@ -80,6 +96,13 @@ export const contestReportToJSON = (r: any) => ({
   practicePlan7Days: r.practicePlan7Days ?? [],
   predictedRatingChange: r.predictedRatingChange,
   nextContestRecommendation: r.nextContestRecommendation,
+  resources: (r.resources ?? []).map((res: any) => ({
+    type: res.type,
+    title: res.title,
+    url: res.url,
+    topic: res.topic ?? '',
+    why: res.why ?? '',
+  })),
   generatedBy: r.generatedBy,
   createdAt: r.createdAt,
 });

@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Code2,
+  ExternalLink,
   Eye,
   EyeOff,
   HelpCircle,
@@ -33,7 +35,7 @@ import type { Goal, GoalModule } from '@/types/goal';
 import type { Answer, LearningContent, QuizResult } from '@/types/learning';
 import { cn } from '@/lib/utils';
 
-type Tab = 'concepts' | 'examples' | 'quiz';
+type Tab = 'concepts' | 'examples' | 'quiz' | 'problems';
 
 export default function ModuleLearningPage() {
   const router = useRouter();
@@ -47,7 +49,7 @@ export default function ModuleLearningPage() {
 
   const [goal, setGoal] = useState<Goal | null>(storeGoal ?? null);
   const [content, setContent] = useState<LearningContent | null>(null);
-  const [tab, setTab] = useState<Tab>('concepts');
+  const [tab, setTab] = useState<Tab>(storeGoal?.goalType === 'quest' ? 'problems' : 'concepts');
   const [loadingGoal, setLoadingGoal] = useState(!storeGoal);
   const [loadingContent, setLoadingContent] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -71,6 +73,7 @@ export default function ModuleLearningPage() {
         if (cancelled) return;
         setGoal(r.goal);
         upsert(r.goal);
+        if (r.goal.goalType === 'quest') setTab('problems');
       })
       .catch((e) => {
         if (cancelled) return;
@@ -83,9 +86,14 @@ export default function ModuleLearningPage() {
     };
   }, [goalId, storeGoal, upsert, router]);
 
-  // Load content (triggers Gemini if missing)
+  // Load content (triggers Gemini if missing) — skip for quest goals
   useEffect(() => {
     if (!goalId || !moduleId) return;
+    // Quest goals have no learning content (no concepts/examples/quiz)
+    if (goal?.goalType === 'quest') {
+      setLoadingContent(false);
+      return;
+    }
     let cancelled = false;
     setLoadingContent(true);
     api<{ content: LearningContent }>(`/goals/${goalId}/modules/${moduleId}/content`, {
@@ -114,6 +122,9 @@ export default function ModuleLearningPage() {
     () => (goal && mod ? goal.modules.findIndex((m) => m.moduleId === mod.moduleId) : -1),
     [goal, mod]
   );
+
+  // Quest-type goals only have problems — no concepts/examples/quiz
+  const isQuest = goal?.goalType === 'quest';
 
   const prevModule = goal && moduleIndex > 0 ? goal.modules[moduleIndex - 1] : null;
   const nextModule =
@@ -203,7 +214,7 @@ export default function ModuleLearningPage() {
       {/* Breadcrumb */}
       <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
         <Link href="/dashboard" className="hover:text-zinc-200">
-          Dashboard
+          Goals
         </Link>
         <ChevronRight className="h-3.5 w-3.5 text-zinc-600" />
         <Link href={`/goals/${goal.id}`} className="hover:text-zinc-200">
@@ -269,6 +280,11 @@ export default function ModuleLearningPage() {
                 onClick={() => markStatus('completed')}
                 disabled={completing}
                 className="btn-primary text-sm"
+                title={
+                  (mod.quizScore ?? 0) < 70
+                    ? 'Pass the quiz (≥70%) to complete this module'
+                    : undefined
+                }
               >
                 {completing ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                 Mark complete
@@ -280,40 +296,56 @@ export default function ModuleLearningPage() {
 
       {/* Tabs */}
       <div className="mb-5 flex flex-wrap items-center gap-1 border-b border-white/5">
-        <TabButton active={tab === 'concepts'} onClick={() => setTab('concepts')} icon={BookOpen}>
-          Concepts
+        {!isQuest && (
+          <>
+            <TabButton active={tab === 'concepts'} onClick={() => setTab('concepts')} icon={BookOpen}>
+              Concepts
+            </TabButton>
+            <TabButton active={tab === 'examples'} onClick={() => setTab('examples')} icon={Lightbulb}>
+              Examples
+              {content?.examples.length ? (
+                <span className="ml-1 text-xs text-zinc-500">({content.examples.length})</span>
+              ) : null}
+            </TabButton>
+            <TabButton active={tab === 'quiz'} onClick={() => setTab('quiz')} icon={HelpCircle}>
+              Quiz
+              {content?.questionCount ? (
+                <span className="ml-1 text-xs text-zinc-500">({content.questionCount})</span>
+              ) : null}
+            </TabButton>
+          </>
+        )}
+        <TabButton active={tab === 'problems'} onClick={() => setTab('problems')} icon={Code2}>
+          Problems
+          {(mod.problemSlugs?.length ?? 0) > 0 && (
+            <span className="ml-1 text-xs text-zinc-500">
+              ({mod.problemsSolved}/{mod.problemSlugs.length})
+            </span>
+          )}
         </TabButton>
-        <TabButton active={tab === 'examples'} onClick={() => setTab('examples')} icon={Lightbulb}>
-          Examples
-          {content?.examples.length ? (
-            <span className="ml-1 text-xs text-zinc-500">({content.examples.length})</span>
-          ) : null}
-        </TabButton>
-        <TabButton active={tab === 'quiz'} onClick={() => setTab('quiz')} icon={HelpCircle}>
-          Quiz
-          {content?.questionCount ? (
-            <span className="ml-1 text-xs text-zinc-500">({content.questionCount})</span>
-          ) : null}
-        </TabButton>
-        <div className="ml-auto pb-2">
-          <button
-            onClick={handleRegenerate}
-            disabled={regenerating || loadingContent}
-            className="btn-ghost text-xs"
-            title="Regenerate this module's content with Gemini"
-          >
-            {regenerating ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RotateCcw className="h-3.5 w-3.5" />
-            )}
-            Regenerate
-          </button>
-        </div>
+        {!isQuest && (
+          <div className="ml-auto pb-2">
+            <button
+              onClick={handleRegenerate}
+              disabled={regenerating || loadingContent}
+              className="btn-ghost text-xs"
+              title="Regenerate this module's content with Gemini"
+            >
+              {regenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
+              Regenerate
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      {loadingContent ? (
+      {tab === 'problems' ? (
+        <ModuleProblemsTab goalId={goal.id} moduleId={mod.moduleId} />
+      ) : loadingContent ? (
         <ContentLoading />
       ) : !content ? (
         <div className="glass p-8 text-center text-zinc-400">
@@ -452,9 +484,20 @@ function ExamplesTab({
   setActiveIndex: (n: number) => void;
 }) {
   const ex = content.examples[activeIndex];
+  const [lang, setLang] = useState('python');
   if (!ex) {
     return <div className="glass p-8 text-center text-zinc-400">No examples generated.</div>;
   }
+
+  // Support both old (string) and new (object) code format
+  const codeIsObject = typeof ex.code === 'object' && ex.code !== null;
+  const codeObj = codeIsObject ? (ex.code as Record<string, string>) : null;
+  const availableLangs = codeObj ? Object.keys(codeObj) : [];
+  const displayCode = codeObj ? (codeObj[lang] ?? codeObj[availableLangs[0]] ?? '') : (ex.code as string);
+  const displayLang = codeObj ? lang : (ex.language || 'code');
+
+  const LANG_LABELS: Record<string, string> = { python: 'Python', cpp: 'C++', java: 'Java', c: 'C' };
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[200px_1fr]">
       <nav className="space-y-1">
@@ -487,17 +530,168 @@ function ExamplesTab({
         </div>
         <h3 className="mt-1 font-display text-xl font-semibold">{ex.title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-zinc-300">{ex.explanation}</p>
-        {ex.code && (
+        {(displayCode || codeObj) && (
           <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-bg-card/80">
-            <div className="border-b border-white/5 bg-white/[0.02] px-3 py-1 text-[10px] uppercase tracking-wider text-zinc-500">
-              {ex.language || 'code'}
+            <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.02] px-3 py-1">
+              <span className="text-[10px] uppercase tracking-wider text-zinc-500">
+                {LANG_LABELS[displayLang] || displayLang}
+              </span>
+              {availableLangs.length > 1 && (
+                <div className="flex gap-1">
+                  {availableLangs.map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(l)}
+                      className={cn(
+                        'rounded px-2 py-0.5 text-[10px] font-medium transition',
+                        l === lang
+                          ? 'bg-accent-violet/20 text-accent-violet'
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      )}
+                    >
+                      {LANG_LABELS[l] || l}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <pre className="overflow-x-auto p-4 font-mono text-sm leading-relaxed text-zinc-200">
-              <code>{ex.code}</code>
+              <code>{displayCode}</code>
             </pre>
           </div>
         )}
       </motion.div>
     </div>
+  );
+}
+
+/* ───── Module Problems Tab ───── */
+
+interface ModuleProblem {
+  slug: string;
+  title: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  tags: string[];
+  solved: boolean;
+}
+
+function ModuleProblemsTab({ goalId, moduleId }: { goalId: string; moduleId: string }) {
+  const [problems, setProblems] = useState<ModuleProblem[]>([]);
+  const [solved, setSolved] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    api<{ problems: ModuleProblem[]; solved: number; total: number }>(
+      `/goals/${goalId}/modules/${moduleId}/problems`,
+      { auth: true }
+    )
+      .then((r) => {
+        if (cancelled) return;
+        setProblems(r.problems);
+        setSolved(r.solved);
+        setTotal(r.total);
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setLoading(false));
+    return () => { cancelled = true; };
+  }, [goalId, moduleId]);
+
+  if (loading) {
+    return (
+      <div className="glass flex items-center justify-center p-8">
+        <Loader2 className="h-5 w-5 animate-spin text-accent-violet" />
+      </div>
+    );
+  }
+
+  if (problems.length === 0) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass p-6">
+        <div className="mb-3 flex items-center gap-2 text-xs font-medium text-accent-cyan">
+          <Code2 className="h-3.5 w-3.5" /> Practice Problems
+        </div>
+        <div className="rounded-xl border border-dashed border-white/10 p-6 text-center text-sm text-zinc-500">
+          No practice problems assigned to this module yet.
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="glass p-6">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-xs font-medium text-accent-cyan">
+          <Code2 className="h-3.5 w-3.5" /> Practice Problems
+        </div>
+        <div className="text-xs text-zinc-400">
+          <span className="font-medium text-accent-emerald">{solved}</span>
+          <span className="text-zinc-500"> / {total} solved</span>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-accent-emerald to-accent-cyan transition-all"
+          style={{ width: `${total > 0 ? (solved / total) * 100 : 0}%` }}
+        />
+      </div>
+
+      <p className="mb-4 text-sm text-zinc-400">
+        Solve these problems to reinforce the concepts in this module. All problems must be solved to mark this module as complete.
+      </p>
+
+      <div className="space-y-2">
+        {problems.map((p) => (
+          <Link
+            key={p.slug}
+            href={`/solve/${p.slug}`}
+            className={cn(
+              'flex items-center justify-between rounded-xl border p-3 text-sm transition',
+              p.solved
+                ? 'border-accent-emerald/20 bg-accent-emerald/5 hover:bg-accent-emerald/10'
+                : 'border-white/10 bg-white/[0.02] hover:bg-white/5'
+            )}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              {p.solved ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-accent-emerald" />
+              ) : (
+                <Code2 className="h-4 w-4 shrink-0 text-zinc-500" />
+              )}
+              <div className="min-w-0">
+                <div className={cn('font-medium truncate', p.solved ? 'text-zinc-300' : 'text-zinc-200')}>
+                  {p.title}
+                </div>
+                {p.tags.length > 0 && (
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {p.tags.slice(0, 3).map((t) => (
+                      <span key={t} className="rounded-full border border-white/5 bg-white/[0.03] px-1.5 py-0.5 text-[9px] text-zinc-500">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span
+                className={cn(
+                  'rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase',
+                  p.difficulty === 'Easy' && 'border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald',
+                  p.difficulty === 'Medium' && 'border-amber-500/30 bg-amber-500/10 text-amber-300',
+                  p.difficulty === 'Hard' && 'border-accent-rose/30 bg-accent-rose/10 text-accent-rose'
+                )}
+              >
+                {p.difficulty}
+              </span>
+              <ExternalLink className="h-3.5 w-3.5 text-zinc-500" />
+            </div>
+          </Link>
+        ))}
+      </div>
+    </motion.div>
   );
 }

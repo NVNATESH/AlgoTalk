@@ -432,6 +432,12 @@ export function useVoiceMesh(
   const startScreenShare = useCallback(async () => {
     if (state.status !== 'connected') return;
     if (screenStreamRef.current) return;
+    // Only one screen share at a time across the mesh
+    const alreadySharing = state.peers.some((p) => p.screenStream !== null);
+    if (alreadySharing) {
+      setState((s) => ({ ...s, error: 'Another participant is already sharing their screen' }));
+      return;
+    }
     let screen: MediaStream;
     try {
       screen = await navigator.mediaDevices.getDisplayMedia({

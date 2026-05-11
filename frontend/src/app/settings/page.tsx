@@ -80,7 +80,7 @@ export default function SettingsPage() {
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="font-display text-3xl font-bold">Settings</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Manage how LearnHub looks, behaves, and what's connected to your account.
+            Manage how AlgoTalk looks, behaves, and what's connected to your account.
           </p>
         </motion.div>
 
@@ -320,7 +320,7 @@ function IntegrationsCard({ integrations }: { integrations: IntegrationSummary[]
       <SectionHeader
         icon={Globe}
         title="Connected platforms"
-        subtitle="External coding profiles that contribute to your LearnHub stats."
+        subtitle="External coding profiles that contribute to your AlgoTalk stats."
       />
 
       <div className="mt-5">
@@ -513,7 +513,7 @@ function BrowserExtensionCard() {
       <SectionHeader
         icon={Plug}
         title="Browser extension"
-        subtitle="Pair the LearnHub Capture extension to forward your contest verdicts in real time (~1s vs the 60s server-side poll)."
+        subtitle="Pair the AlgoTalk Capture extension to forward your contest verdicts in real time (~1s vs the 60s server-side poll)."
       />
       <div className="mt-5 space-y-3">
         {tokens === null ? (
@@ -652,7 +652,7 @@ function ExportCard({ username }: { username: string }) {
       <SectionHeader
         icon={Download}
         title="Export your data"
-        subtitle="Download a JSON file with everything LearnHub has stored about you."
+        subtitle="Download a JSON file with everything AlgoTalk has stored about you."
       />
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-4">
         <div className="text-sm text-zinc-400">
@@ -1322,7 +1322,7 @@ function WebhooksCard() {
           </h3>
           <p className="mt-0.5 text-[11px] text-zinc-500">
             We POST <code className="rounded bg-white/5 px-1">{`{event, data, deliveredAt}`}</code>{' '}
-            with an <code className="rounded bg-white/5 px-1">X-LearnHub-Signature</code> HMAC-SHA256
+            with an <code className="rounded bg-white/5 px-1">X-AlgoTalk-Signature</code> HMAC-SHA256
             header so your receiver can verify the source.
           </p>
 

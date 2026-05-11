@@ -11,6 +11,20 @@ interface LeetCodeProfile {
   ranking: number | null;
   totalSolved: number;
   byDifficulty: { Easy: number; Medium: number; Hard: number };
+  // Per-tag solved counts across the three LC tag categories. Useful to drive
+  // weak-topic detection on the integration card without needing per-problem
+  // enumeration (which LC's public API forbids for third-party users).
+  tagCounts: { advanced: TagCount[]; intermediate: TagCount[]; fundamental: TagCount[] };
+  // Active days in the trailing year + current streak (LC userCalendar).
+  activeYears: number[];
+  streak: number;
+  totalActiveDays: number;
+}
+
+export interface TagCount {
+  name: string;
+  slug: string;
+  problemsSolved: number;
 }
 
 interface LeetCodeSubmission {
@@ -64,9 +78,18 @@ export async function fetchLeetCodeProfile(handle: string): Promise<LeetCodeProf
           submitStatsGlobal: {
             acSubmissionNum: Array<{ difficulty: string; count: number }>;
           };
+          tagProblemCounts: {
+            advanced: Array<{ tagName: string; tagSlug: string; problemsSolved: number }>;
+            intermediate: Array<{ tagName: string; tagSlug: string; problemsSolved: number }>;
+            fundamental: Array<{ tagName: string; tagSlug: string; problemsSolved: number }>;
+          } | null;
         }
       | null;
   }
+  // Single combined query so we don't pay multiple round-trips. Calendar
+  // (active years / streak) is fetched in a follow-up because requesting it
+  // inline frequently triggers LC's anti-scrape rate limiter when the same
+  // handle is re-synced; if the calendar query 429s we still return the rest.
   const data = await gql<Resp>(
     `
     query lhUserProfile($username: String!) {
@@ -74,6 +97,11 @@ export async function fetchLeetCodeProfile(handle: string): Promise<LeetCodeProf
         username
         profile { realName ranking userAvatar }
         submitStatsGlobal { acSubmissionNum { difficulty count } }
+        tagProblemCounts {
+          advanced { tagName tagSlug problemsSolved }
+          intermediate { tagName tagSlug problemsSolved }
+          fundamental { tagName tagSlug problemsSolved }
+        }
       }
     }`,
     { username: handle }
@@ -87,6 +115,35 @@ export async function fetchLeetCodeProfile(handle: string): Promise<LeetCodeProf
     if (row.difficulty === 'All') totalSolved = row.count;
     else if (row.difficulty in stats) (stats as any)[row.difficulty] = row.count;
   }
+
+  const tc = data.matchedUser.tagProblemCounts;
+  const mapTags = (arr?: Array<{ tagName: string; tagSlug: string; problemsSolved: number }>) =>
+    (arr ?? [])
+      .filter((t) => (t.problemsSolved ?? 0) > 0)
+      .map((t) => ({
+        name: t.tagName,
+        slug: t.tagSlug,
+        problemsSolved: t.problemsSolved,
+      }));
+
+  // Calendar (active years + streak). Failure here is non-fatal — same handle
+  // already returned a 200 above, so an empty calendar means we just skip the
+  // streak block.
+  let activeYears: number[] = [];
+  let streak = 0;
+  let totalActiveDays = 0;
+  try {
+    const cal = await fetchLeetCodeCalendarStats(handle);
+    activeYears = cal.activeYears;
+    streak = cal.streak;
+    totalActiveDays = cal.totalActiveDays;
+  } catch (err) {
+    logger.debug(
+      { err: (err as Error).message, handle },
+      'leetcode calendar stats unavailable'
+    );
+  }
+
   return {
     username: data.matchedUser.username,
     realName: data.matchedUser.profile.realName ?? '',
@@ -94,6 +151,43 @@ export async function fetchLeetCodeProfile(handle: string): Promise<LeetCodeProf
     ranking: data.matchedUser.profile.ranking,
     totalSolved,
     byDifficulty: stats,
+    tagCounts: {
+      advanced: mapTags(tc?.advanced),
+      intermediate: mapTags(tc?.intermediate),
+      fundamental: mapTags(tc?.fundamental),
+    },
+    activeYears,
+    streak,
+    totalActiveDays,
+  };
+}
+
+async function fetchLeetCodeCalendarStats(
+  handle: string
+): Promise<{ activeYears: number[]; streak: number; totalActiveDays: number }> {
+  interface Resp {
+    matchedUser: {
+      userCalendar: {
+        activeYears: number[];
+        streak: number;
+        totalActiveDays: number;
+      } | null;
+    } | null;
+  }
+  const data = await gql<Resp>(
+    `
+    query lhCalendar($username: String!) {
+      matchedUser(username: $username) {
+        userCalendar { activeYears streak totalActiveDays }
+      }
+    }`,
+    { username: handle }
+  );
+  const c = data?.matchedUser?.userCalendar;
+  return {
+    activeYears: c?.activeYears ?? [],
+    streak: c?.streak ?? 0,
+    totalActiveDays: c?.totalActiveDays ?? 0,
   };
 }
 
@@ -125,9 +219,15 @@ async function withConcurrency<T, R>(
   return results;
 }
 
+// LeetCode's `recentAcSubmissionList` is hard-capped at ~15 server-side; values
+// above 20 are silently truncated. The full per-problem solved list is NOT
+// publicly enumerable for arbitrary users — that data sits behind a session
+// cookie. Use the LearnHub browser extension (frontend/extensions) to import
+// the authoritative list when full coverage is required; everything below is
+// the best the public GraphQL surface exposes.
 export async function fetchLeetCodeRecentSubmissions(
   handle: string,
-  limit = 50
+  limit = 20
 ): Promise<LeetCodeSubmission[]> {
   interface Resp {
     recentAcSubmissionList: Array<{

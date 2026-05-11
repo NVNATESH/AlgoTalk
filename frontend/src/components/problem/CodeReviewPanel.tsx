@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { api, ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { ResourceList } from '@/components/learning/ResourceList';
 
 export interface CodeReview {
   id: string;
@@ -28,6 +29,13 @@ export interface CodeReview {
     line: number;
     severity: 'critical' | 'warning' | 'suggestion' | 'info';
     comment: string;
+  }>;
+  resources?: Array<{
+    type: 'article' | 'video' | 'blog' | 'docs' | 'repo' | 'problem' | 'course';
+    title: string;
+    url: string;
+    topic: string;
+    why: string;
   }>;
   language: string;
   model: string;
@@ -226,6 +234,10 @@ export function CodeReviewPanel({
             </AnimatePresence>
           </ul>
         </div>
+      )}
+
+      {review.resources && review.resources.length > 0 && (
+        <ResourceList resources={review.resources} />
       )}
 
       <div className="text-right text-[10px] text-zinc-600">

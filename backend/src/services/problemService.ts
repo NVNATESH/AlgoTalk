@@ -9,6 +9,8 @@ import {
   type TestCaseInput,
 } from './judge.js';
 import { analyzeCode } from '../analysis/staticAnalyzer.js';
+import { invalidateAnalyzerCache } from './analyzerService.js';
+import { syncProblemSolved } from './goalService.js';
 
 interface ListOpts {
   search?: string;
@@ -228,6 +230,8 @@ export async function submit(
       : {}),
   });
 
+  invalidateAnalyzerCache(userId);
+
   // bump problem stats (atomically)
   await Problem.updateOne(
     { _id: p._id },
@@ -238,6 +242,11 @@ export async function submit(
       },
     }
   );
+
+  // Sync problem-solved progress to any goal modules referencing this problem
+  if (status === 'accepted') {
+    void syncProblemSolved(userId, slug);
+  }
 
   return {
     submission: submissionToJSON(sub.toObject()),

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ import type { Platform } from '@/types/integration';
 import { cn } from '@/lib/utils';
 
 /**
- * "What to solve next" — now built around the cross-platform multi-pick
+ * "What to solve next" â€” now built around the cross-platform multi-pick
  * endpoint that reads every connected platform's last submission, weak topics,
  * and CF rating zone. Falls back to the LearnHub-catalog pick as a secondary
  * suggestion at the bottom of the page.
@@ -60,7 +60,7 @@ export function RecommendationsTab() {
         auth: true,
       });
       setData(r);
-      // Kick off the internal-catalog pick in parallel — it's the same call
+      // Kick off the internal-catalog pick in parallel â€” it's the same call
       // that used to power this tab; we still surface it as a "from your
       // LearnHub catalog" fallback so users can solve right inside the app.
       void loadInternal();
@@ -80,7 +80,7 @@ export function RecommendationsTab() {
       });
       setInternal(r);
     } catch {
-      // Best-effort — internal pick is secondary, swallow errors.
+      // Best-effort â€” internal pick is secondary, swallow errors.
     } finally {
       setInternalLoading(false);
     }
@@ -91,7 +91,7 @@ export function RecommendationsTab() {
       <div className="glass p-10 text-center">
         <Loader2 className="mx-auto h-7 w-7 animate-spin text-accent-violet" />
         <p className="mt-3 text-sm text-zinc-400">
-          Reading your platform intel and picking 5 problems…
+          Reading your platform intel and picking 5 problemsâ€¦
         </p>
       </div>
     );
@@ -120,7 +120,7 @@ export function RecommendationsTab() {
         <h3 className="mt-3 font-display text-xl font-semibold">What should I solve next?</h3>
         <p className="mt-1 max-w-md mx-auto text-sm text-zinc-400">
           Gemini reads your last submission on every connected platform, your weak topics, and your
-          Codeforces rating zone — then picks 5 problems across the right mix of platforms.
+          Codeforces rating zone â€” then picks 5 problems across the right mix of platforms.
         </p>
         <button onClick={generate} className="btn-primary mt-5">
           <Sparkles className="h-4 w-4" /> Recommend across all platforms
@@ -167,10 +167,10 @@ export function RecommendationsTab() {
           <div className="flex items-start gap-3 text-sm">
             <Target className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
             <div className="text-zinc-300">
-              No external platforms connected — recommendations are based only on the LearnHub
+              No external platforms connected â€” recommendations are based only on the AlgoTalk
               catalog.{' '}
               <Link href="/integrations" className="text-accent-violet hover:underline">
-                Connect one →
+                Connect one â†’
               </Link>
             </div>
           </div>
@@ -188,11 +188,11 @@ export function RecommendationsTab() {
       {(internal || internalLoading) && (
         <section className="glass p-5">
           <div className="mb-3 flex items-center gap-2 text-xs font-medium text-accent-cyan">
-            <Sparkles className="h-3.5 w-3.5" /> From your LearnHub catalog
+            <Sparkles className="h-3.5 w-3.5" /> From your AlgoTalk catalog
           </div>
           {internalLoading && !internal ? (
             <div className="flex items-center gap-2 text-xs text-zinc-500">
-              <Loader2 className="h-3 w-3 animate-spin" /> Picking an internal problem…
+              <Loader2 className="h-3 w-3 animate-spin" /> Picking an internal problemâ€¦
             </div>
           ) : internal && internal.pickedProblem ? (
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -220,7 +220,7 @@ export function RecommendationsTab() {
                 </p>
               </div>
               <Link href={`/solve/${internal.pickedProblem.slug}`} className="btn-primary text-sm">
-                Solve in LearnHub <ArrowRight className="h-4 w-4" />
+                Solve in AlgoTalk <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           ) : internal ? (
@@ -259,7 +259,7 @@ function RecCard({ rec, index }: { rec: CrossRec; index: number }) {
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: Math.min(index * 0.03, 0.25) }}
       className="glass flex flex-col gap-3 p-5"
     >
       <div className="flex items-start gap-3">
@@ -280,11 +280,11 @@ function RecCard({ rec, index }: { rec: CrossRec; index: number }) {
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
             <span>{platformLabel(rec.platform)}</span>
-            <span>·</span>
+            <span>Â·</span>
             <span className="rounded-full border border-white/5 bg-white/[0.03] px-2 py-0.5">
               {rec.topic}
             </span>
-            <span>·</span>
+            <span>Â·</span>
             <span>~{rec.estimatedTimeMinutes} min</span>
           </div>
         </div>
@@ -325,19 +325,19 @@ function RatingZoneCallout({ zone }: { zone: CfRatingZone }) {
               <>
                 You're solid at{' '}
                 <span className="font-mono font-semibold tabular-nums text-zinc-100">
-                  {zone.comfortBand.low}–{zone.comfortBand.high + 99}
+                  {zone.comfortBand.low}â€“{zone.comfortBand.high + 99}
                 </span>{' '}
                 ({zone.comfortBand.acceptanceRate}% accept).
               </>
             ) : (
-              <>No consistent rating band yet — keep building volume.</>
+              <>No consistent rating band yet â€” keep building volume.</>
             )}
             {zone.growthBand && (
               <>
                 {' '}
                 <span className="text-zinc-400">Stretch toward </span>
                 <span className="font-mono font-semibold tabular-nums text-zinc-100">
-                  {zone.growthBand.low}–{zone.growthBand.high + 99}
+                  {zone.growthBand.low}â€“{zone.growthBand.high + 99}
                 </span>
                 <span className="text-zinc-400">
                   {' '}

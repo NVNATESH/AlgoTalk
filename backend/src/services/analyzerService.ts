@@ -4,6 +4,26 @@ import { Problem } from '../models/Problem.js';
 import { Goal } from '../models/Goal.js';
 import { LearningContent } from '../models/LearningContent.js';
 import { ExtractedSubmission } from '../models/ExtractedSubmission.js';
+import { TtlCache } from '../utils/ttlCache.js';
+
+type ProblemLite = { _id: any; slug: string; title: string; difficulty: string; tags: string[]; cfEquivRating?: number | null };
+
+// Global problem catalog rarely changes — cache it for 5 min so every
+// analyzer call doesn't re-scan the whole collection.
+const problemCatalogCache = new TtlCache<ProblemLite[]>(5 * 60_000);
+
+// Per-user overview is expensive (full scan over user's submissions). 45s
+// cache absorbs duplicate requests during a single dashboard session without
+// making stats noticeably stale.
+const overviewCache = new TtlCache<AnalyzerOverview>(45_000);
+
+export function invalidateAnalyzerCache(userId: string) {
+  overviewCache.invalidate(`overview:${userId}`);
+}
+
+export function invalidateProblemCatalogCache() {
+  problemCatalogCache.clear();
+}
 
 export interface TopicMastery {
   topic: string;
@@ -54,10 +74,15 @@ export interface AnalyzerOverview {
   byLanguage: Array<{ language: string; count: number; accepted: number; acceptanceRate: number }>;
   attemptedProblems: number;
   unattempted: Array<{ slug: string; title: string; difficulty: string; tags: string[]; cfEquivRating: number | null }>;
+  unattemptedTotal: number;
   ratingDistribution: RatingDistribution | null;
 }
 
 export async function computeOverview(userId: string): Promise<AnalyzerOverview> {
+  return overviewCache.wrap(`overview:${userId}`, () => computeOverviewUncached(userId));
+}
+
+async function computeOverviewUncached(userId: string): Promise<AnalyzerOverview> {
   const userObjId = new Types.ObjectId(userId);
 
   const [allSubs, problems, learningContents, extracted] = await Promise.all([
@@ -65,7 +90,13 @@ export async function computeOverview(userId: string): Promise<AnalyzerOverview>
       .select('problemId status language runtimeMs createdAt')
       .sort({ createdAt: 1 })
       .lean(),
-    Problem.find({}).select('_id slug title difficulty tags cfEquivRating').lean(),
+    problemCatalogCache.wrap(
+      'all',
+      () =>
+        Problem.find({}).select('_id slug title difficulty tags cfEquivRating').lean() as Promise<
+          ProblemLite[]
+        >
+    ),
     LearningContent.find({ userId: userObjId })
       .select('moduleId quiz bestPercentage')
       .lean(),
@@ -317,16 +348,18 @@ export async function computeOverview(userId: string): Promise<AnalyzerOverview>
     }
   }
 
-  // Unattempted problems (suggestions)
-  const unattempted = problems
-    .filter((p) => !attemptedSet.has(String(p._id)))
-    .map((p: any) => ({
-      slug: p.slug,
-      title: p.title,
-      difficulty: p.difficulty,
-      tags: p.tags ?? [],
-      cfEquivRating: typeof p.cfEquivRating === 'number' ? p.cfEquivRating : null,
-    }));
+  // Unattempted problems (suggestions). Cap at 200 to keep the response payload
+  // small — downstream AI/recommendation services only need a sample. Track
+  // the true total separately so totalProblems counts stay accurate.
+  const unattemptedAll = problems.filter((p) => !attemptedSet.has(String(p._id)));
+  const unattempted = unattemptedAll.slice(0, 200).map((p: any) => ({
+    slug: p.slug,
+    title: p.title,
+    difficulty: p.difficulty,
+    tags: p.tags ?? [],
+    cfEquivRating: typeof p.cfEquivRating === 'number' ? p.cfEquivRating : null,
+  }));
+  const unattemptedTotal = unattemptedAll.length;
 
   // Totals — fold internal + external
   const acceptedCount = acceptedAt.size; // distinct (already merged)
@@ -398,6 +431,7 @@ export async function computeOverview(userId: string): Promise<AnalyzerOverview>
     byLanguage,
     attemptedProblems: attemptedSet.size + externalAttemptedSet.size,
     unattempted,
+    unattemptedTotal,
     ratingDistribution,
   };
 }
@@ -560,7 +594,7 @@ export async function buildProgressContext(userId: string): Promise<ProgressCont
 
   return {
     totalSolved: overview.totals.distinctSolved,
-    totalProblems: (overview.totals.distinctSolved + overview.unattempted.length),
+    totalProblems: overview.totals.distinctSolved + overview.unattemptedTotal,
     acceptanceRate: overview.totals.acceptanceRate,
     byDifficulty: {
       Easy: { solved: solvedByDiff.Easy, total: totalsByDiff.Easy },

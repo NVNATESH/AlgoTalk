@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -136,8 +136,8 @@ export default function IntegrationsPage() {
       );
       toast.success(
         r.newSubmissions > 0
-          ? `+${r.newSubmissions} new · ${r.total} total cached`
-          : `Up to date · ${r.total} cached`
+          ? `+${r.newSubmissions} new Â· ${r.total} total cached`
+          : `Up to date Â· ${r.total} cached`
       );
       await refreshAll();
     } catch (e) {
@@ -189,13 +189,13 @@ export default function IntegrationsPage() {
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-accent-violet">
             <Globe2 className="h-3 w-3" /> Integrations
           </div>
-          <h1 className="mt-1 font-display text-3xl font-bold md:text-4xl">🌐 Connected platforms</h1>
+          <h1 className="mt-1 font-display text-3xl font-bold md:text-4xl">Connected Platforms</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Pull submissions from LeetCode, Codeforces, CodeChef, AtCoder, HackerRank, GFG, and HackerEarth.
           </p>
           {integrations.length > 0 && (
             <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-accent-emerald/20 bg-accent-emerald/5 px-2.5 py-0.5 text-[10px] font-medium text-accent-emerald">
-              <RefreshCw className="h-3 w-3" /> Auto-syncs every 6h in the background · click Sync to refresh now
+              <RefreshCw className="h-3 w-3" /> Auto-syncs every 6h in the background Â· click Sync to refresh now
             </p>
           )}
         </div>
@@ -242,7 +242,7 @@ export default function IntegrationsPage() {
                   </div>
                   <ul className="mt-2 space-y-2">
                     {/* Show every connected integration, not just ones with
-                        submissions — otherwise newly-linked accounts disappear
+                        submissions â€” otherwise newly-linked accounts disappear
                         from this section until their first sync row lands. */}
                     {integrations.map((i) => {
                       const s = stats.byPlatform[i.platform] ?? {
@@ -264,8 +264,8 @@ export default function IntegrationsPage() {
                             </span>
                           </div>
                           <div className="mt-1 text-[10px] text-zinc-500">
-                            {s.submissions} submissions · {s.accepted} accepted
-                            {s.submissions === 0 && ' · awaiting first sync'}
+                            {s.submissions} submissions Â· {s.accepted} accepted
+                            {s.submissions === 0 && ' Â· awaiting first sync'}
                           </div>
                         </li>
                       );
@@ -307,7 +307,7 @@ export default function IntegrationsPage() {
                     Languages
                   </div>
                   {stats.byLanguage.length === 0 ? (
-                    <p className="mt-2 text-sm text-zinc-500">—</p>
+                    <p className="mt-2 text-sm text-zinc-500">â€”</p>
                   ) : (
                     <ul className="mt-2 space-y-1.5">
                       {stats.byLanguage.slice(0, 6).map((l) => (
@@ -382,6 +382,7 @@ interface PlatformPulse {
   rank: string;
   submissionCount: number;
   acceptedCount: number;
+  solvedCount: number;
   lastSubmission: {
     problemTitle: string;
     problemUrl: string;
@@ -444,7 +445,7 @@ function CrossPlatformWidgets({ platforms }: { platforms: Platform[] }) {
           <div className="mb-3">
             <h2 className="font-display text-base font-semibold">Latest activity per platform</h2>
             <p className="text-[11px] text-zinc-500">
-              Most recent submission on each connected platform — click to open it on the platform.
+              Most recent submission on each connected platform â€” click to open it on the platform.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -464,8 +465,8 @@ function CrossPlatformWidgets({ platforms }: { platforms: Platform[] }) {
                 Combined activity heatmap
               </h2>
               <p className="text-[11px] text-zinc-500">
-                Every submission across every platform you've connected, plus internal LearnHub
-                solves — last 365 days.
+                Every submission across every platform you've connected, plus internal AlgoTalk
+                solves â€” last 365 days.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
@@ -497,7 +498,7 @@ function PulseCard({ pulse, index }: { pulse: PlatformPulse; index: number }) {
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: Math.min(index * 0.03, 0.25) }}
       className="glass flex flex-col gap-2 p-4"
     >
       <div className="flex items-center gap-3">
@@ -517,11 +518,11 @@ function PulseCard({ pulse, index }: { pulse: PlatformPulse; index: number }) {
       <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
         {pulse.rating !== null && (
           <span className="rounded-full border border-white/5 bg-white/[0.03] px-2 py-0.5">
-            ⭐ {pulse.rating}
+            â­ {pulse.rating}
           </span>
         )}
-        <span className="rounded-full border border-white/5 bg-white/[0.03] px-2 py-0.5">
-          {pulse.acceptedCount}/{pulse.submissionCount} accepted
+        <span className="rounded-full border border-accent-emerald/20 bg-accent-emerald/10 px-2 py-0.5 text-accent-emerald">
+          {pulse.solvedCount.toLocaleString()} solved
         </span>
       </div>
       {last ? (
@@ -533,7 +534,7 @@ function PulseCard({ pulse, index }: { pulse: PlatformPulse; index: number }) {
         >
           <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
             <span>Last submission</span>
-            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-600">Â·</span>
             <span
               className={cn(
                 last.status === 'accepted' ? 'text-accent-emerald' : 'text-accent-rose'
@@ -550,12 +551,12 @@ function PulseCard({ pulse, index }: { pulse: PlatformPulse; index: number }) {
               ? 'today'
               : last.daysSince === 1
                 ? 'yesterday'
-                : `${last.daysSince ?? '—'} days ago`}
+                : `${last.daysSince ?? 'â€”'} days ago`}
           </div>
         </a>
       ) : (
         <div className="rounded-xl border border-dashed border-white/10 p-2.5 text-[11px] text-zinc-500">
-          No submissions pulled — click Sync to fetch.
+          No submissions pulled â€” click Sync to fetch.
         </div>
       )}
     </motion.div>
@@ -629,7 +630,7 @@ function Heatmap({ days }: { days: HeatmapDay[] }) {
                     key={di}
                     title={`${d.date}: ${d.total} submission${d.total === 1 ? '' : 's'} (${d.accepted} accepted)\n${
                       Object.entries(d.byPlatform)
-                        .map(([k, v]) => `· ${k}: ${v}`)
+                        .map(([k, v]) => `Â· ${k}: ${v}`)
                         .join('\n') || ''
                     }`}
                     className={cn(
@@ -705,7 +706,7 @@ function PlatformCard({
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: Math.min(index * 0.03, 0.25) }}
       className="glass p-5"
     >
       <div className="flex items-start gap-3">
@@ -721,13 +722,13 @@ function PlatformCard({
             {integration.rating !== null && (
               <span>Rating {integration.rating}</span>
             )}
-            {integration.rank && <span>· {integration.rank}</span>}
+            {integration.rank && <span>Â· {integration.rank}</span>}
             {integration.displayName && integration.displayName !== integration.handle && (
-              <span>· {integration.displayName}</span>
+              <span>Â· {integration.displayName}</span>
             )}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Stat label="Cached" value={integration.submissionCount.toString()} />
+            <Stat label="Solved" value={(integration.solvedCount ?? 0).toLocaleString()} />
             <Stat label="Syncs" value={integration.syncCount.toString()} />
           </div>
         </div>
@@ -789,7 +790,7 @@ function SyncStatus({ integration }: { integration: Integration }) {
     return (
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="flex items-center gap-1.5 text-[11px] text-accent-rose">
-          <XCircle className="h-3 w-3 shrink-0" /> Failed · {ago}
+          <XCircle className="h-3 w-3 shrink-0" /> Failed Â· {ago}
         </span>
         {reason && (
           <span
@@ -802,7 +803,7 @@ function SyncStatus({ integration }: { integration: Integration }) {
       </div>
     );
   }
-  // Synced successfully but returned 0 submissions → show a softer hint so
+  // Synced successfully but returned 0 submissions â†’ show a softer hint so
   // the user understands "green" doesn't mean "we found data".
   if (integration.submissionCount === 0) {
     return (
@@ -811,7 +812,7 @@ function SyncStatus({ integration }: { integration: Integration }) {
           <CheckCircle2 className="h-3 w-3 shrink-0" /> Synced {ago}
         </span>
         <span className="text-[10px] leading-snug text-amber-300/80">
-          0 submissions found · check the handle is correct
+          0 submissions found Â· check the handle is correct
         </span>
       </div>
     );
@@ -865,11 +866,11 @@ function SubmissionRow({ sub }: { sub: ExtractedSubmission }) {
           <span className={ok ? 'text-accent-emerald' : 'text-accent-rose'}>
             {STATUS_LABEL[sub.status] ?? sub.status}
           </span>
-          <span>·</span>
-          <span className="truncate font-mono">{sub.language || '—'}</span>
+          <span>Â·</span>
+          <span className="truncate font-mono">{sub.language || 'â€”'}</span>
           {sub.topics.length > 0 && (
             <>
-              <span>·</span>
+              <span>Â·</span>
               <span className="truncate">{sub.topics.slice(0, 3).join(', ')}</span>
             </>
           )}
@@ -889,7 +890,7 @@ function EmptyState({ onConnect }: { onConnect: () => void }) {
       </div>
       <h3 className="font-display text-2xl font-bold">Sync your real-world progress</h3>
       <p className="mt-2 max-w-md text-sm text-zinc-400">
-        Connect a public LeetCode or Codeforces handle to pull your submissions into LearnHub. We
+        Connect a public LeetCode or Codeforces handle to pull your submissions into AlgoTalk. We
         normalize topics across platforms so your stats actually line up.
       </p>
       <button onClick={onConnect} className="btn-primary mt-6">

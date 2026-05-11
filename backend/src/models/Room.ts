@@ -23,6 +23,11 @@ const roomSchema = new Schema(
     initialContent: { type: String, default: '' }, // optional starter code/notes
     language: { type: String, default: 'javascript' },
 
+    // When created via a group meet-accept, links the room back to the group so
+    // we can enforce "at most one active room per group" + render group-meeting
+    // UIs without joining the meet collection.
+    groupId: { type: Schema.Types.ObjectId, ref: 'Group', default: null, index: true },
+    endedAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
   },
   { timestamps: true }
@@ -30,6 +35,8 @@ const roomSchema = new Schema(
 
 roomSchema.index({ writers: 1 });
 roomSchema.index({ readOnly: 1 });
+// Active-meeting lookup: one (groupId, endedAt=null) tuple at a time.
+roomSchema.index({ groupId: 1, endedAt: 1 });
 
 export type RoomDoc = InferSchemaType<typeof roomSchema> & { _id: Types.ObjectId };
 
@@ -63,6 +70,8 @@ export const roomToJSON = (r: any, viewerId?: string) => ({
   inviteCode: viewerId && getRole(r, viewerId) ? r.inviteCode : undefined,
   myRole: viewerId ? getRole(r, viewerId) : null,
   isAsker: viewerId ? String(r.asker) === viewerId : false,
+  groupId: r.groupId ? String(r.groupId) : null,
+  endedAt: r.endedAt ? new Date(r.endedAt).toISOString() : null,
   expiresAt: r.expiresAt ? new Date(r.expiresAt).toISOString() : null,
   createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null,
 });

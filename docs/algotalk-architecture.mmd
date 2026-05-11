@@ -1,0 +1,125 @@
+flowchart TB
+
+%% =====================
+%% Header
+%% =====================
+H[ALGOTALK<br/>AI-Powered Collaborative Learning & Competitive Programming Platform Architecture]
+
+%% =====================
+%% Tier 1 Frontend
+%% =====================
+subgraph FE[TIER 1 FRONTEND]
+direction LR
+FE1[Dashboard<br/>Progress, heatmaps, goals]
+FE2[Problem Solver UI<br/>Monaco + review panel]
+FE3[Interview Workspace<br/>Code + communication flow]
+FE4[Group Challenges UI<br/>Leaderboards, meets]
+FE5[Rooms UI<br/>Yjs editor + voice controls]
+FE6[Integrations UI<br/>LeetCode, CF, CC, GFG, etc.]
+end
+
+%% =====================
+%% Auth Layer
+%% =====================
+subgraph AUTH[AUTH LAYER]
+direction LR
+A1[JWT Access/Refresh]
+A2[Role-Based Access Control<br/>user, moderator, admin]
+A3[Zod Request Validation]
+A4[Rate Limiting + Helmet + CORS]
+A5[Session & Token Rotation]
+end
+
+%% =====================
+%% Tier 2 Backend
+%% =====================
+subgraph BE[TIER 2 BACKEND API]
+direction LR
+B1[Auth & Profile Services]
+B2[Goals & Learning Services]
+B3[Problems & Submission Services]
+B4[Contests & Reports Services]
+B5[Interview Services]
+B6[Groups, Rooms & Meets Services]
+B7[Notifications & Admin Services]
+end
+
+%% =====================
+%% AI / Intelligence
+%% =====================
+subgraph AI[AI INTELLIGENCE LAYER]
+direction LR
+AI1[Roadmap Generation]
+AI2[Guided Hints / No Full-Solution Mode]
+AI3[Code Review & Line-Level Feedback]
+AI4[Contest Post-Mortem + Upsolving Guidance]
+AI5[Mock Interview Evaluation<br/>code + communication]
+AI6[Cross-Platform Recommendation Engine]
+AI7[Weak-Area Detection & Skill Gap Analytics]
+end
+
+%% =====================
+%% Data + Realtime/External
+%% =====================
+subgraph DB[DATABASE LAYER]
+direction LR
+D1[(MongoDB + Mongoose Models)]
+D2[Goals, Submissions, Reviews]
+D3[Groups, Rooms, Notifications, Interviews]
+D4[Contest Reports + Integrations Data]
+end
+
+subgraph EXT[REALTIME EXTERNAL INTEGRATIONS]
+direction LR
+E1[Yjs WebSocket Sync]
+E2[WebRTC Voice Signaling]
+E3[Notify WebSocket Push]
+E4[Platform Extractors<br/>LeetCode, Codeforces, CodeChef, AtCoder, HackerRank, HackerEarth, GFG]
+E5[Browser Extension Capture]
+end
+
+%% =====================
+%% Flow
+%% =====================
+H --> FE
+FE -->|JWT / API calls| AUTH
+AUTH -->|Verified request| BE
+BE -->|AI calls| AI
+BE -->|Read / Write| DB
+BE -->|Events / Sync| EXT
+AI -->|Insights & recommendations| BE
+EXT -->|Activity data| BE
+
+%% =====================
+%% Legend
+%% =====================
+subgraph L[LEGEND]
+direction TB
+L1[Frontend Layer]
+L2[Security Layer]
+L3[Backend API Layer]
+L4[AI / Intelligence Layer]
+L5[Database Layer]
+L6[Realtime / Integration Layer]
+end
+
+%% =====================
+%% Styling
+%% =====================
+classDef header fill:#E8F0FF,stroke:#1D4ED8,stroke-width:2px,color:#111827,font-weight:bold;
+classDef fe fill:#EEF2FF,stroke:#6366F1,stroke-width:1.5px,color:#111827;
+classDef auth fill:#ECFDF5,stroke:#16A34A,stroke-width:1.5px,color:#111827;
+classDef be fill:#EFF6FF,stroke:#2563EB,stroke-width:1.5px,color:#111827;
+classDef ai fill:#FDF2F8,stroke:#DB2777,stroke-width:1.5px,color:#111827;
+classDef db fill:#FFFBEB,stroke:#D97706,stroke-width:1.5px,color:#111827;
+classDef ext fill:#ECFEFF,stroke:#0E7490,stroke-width:1.5px,color:#111827;
+classDef legend fill:#F3F4F6,stroke:#6B7280,stroke-width:1px,color:#111827;
+
+class H header;
+class FE1,FE2,FE3,FE4,FE5,FE6 fe;
+class A1,A2,A3,A4,A5 auth;
+class B1,B2,B3,B4,B5,B6,B7 be;
+class AI1,AI2,AI3,AI4,AI5,AI6,AI7 ai;
+class D1,D2,D3,D4 db;
+class E1,E2,E3,E4,E5 ext;
+class L1,L2,L3,L4,L5,L6 legend;

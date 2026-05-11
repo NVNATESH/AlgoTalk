@@ -26,9 +26,12 @@ import { ChallengeCard } from '@/components/groups/ChallengeCard';
 import { PostChallengeDialog } from '@/components/groups/PostChallengeDialog';
 import { RequestMeetDialog } from '@/components/groups/RequestMeetDialog';
 import { MeetsList } from '@/components/groups/MeetsList';
+import { ActiveMeetingBanner } from '@/components/groups/ActiveMeetingBanner';
 import { useAuth } from '@/stores/authStore';
 import { api, ApiError } from '@/lib/api';
 import type {
+  ActiveMeeting,
+  ActiveMeetingResponse,
   Challenge,
   GroupDetail,
   LeaderboardRow,
@@ -51,11 +54,24 @@ export default function GroupDetailPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [meets, setMeets] = useState<MeetRequest[]>([]);
+  const [activeMeeting, setActiveMeeting] = useState<ActiveMeeting | null>(null);
   const [tab, setTab] = useState<Tab>('challenges');
   const [postOpen, setPostOpen] = useState(false);
   const [meetTarget, setMeetTarget] = useState<Challenge | null>(null);
 
-  // Fetch group + challenges + leaderboard + meets
+  const refreshActiveMeeting = async () => {
+    if (!groupId) return;
+    try {
+      const r = await api<ActiveMeetingResponse>(`/groups/${groupId}/active-meeting`, {
+        auth: true,
+      });
+      setActiveMeeting(r.active);
+    } catch {
+      /* silent */
+    }
+  };
+
+  // Fetch group + challenges + leaderboard + meets + active meeting
   useEffect(() => {
     if (!groupId) return;
     let cancelled = false;
@@ -65,13 +81,15 @@ export default function GroupDetailPage() {
       api<{ challenges: Challenge[] }>(`/groups/${groupId}/challenges`, { auth: true }).catch(() => ({ challenges: [] })),
       api<{ leaderboard: LeaderboardRow[] }>(`/groups/${groupId}/leaderboard`, { auth: true }).catch(() => ({ leaderboard: [] })),
       api<{ meets: MeetRequest[] }>(`/groups/${groupId}/meets`, { auth: true }).catch(() => ({ meets: [] })),
+      api<ActiveMeetingResponse>(`/groups/${groupId}/active-meeting`, { auth: true }).catch(() => ({ active: null, canStart: true })),
     ])
-      .then(([g, c, l, m]) => {
+      .then(([g, c, l, m, am]) => {
         if (cancelled) return;
         setGroup(g.group);
         setChallenges(c.challenges);
         setLeaderboard(l.leaderboard);
         setMeets(m.meets);
+        setActiveMeeting(am.active);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -83,15 +101,18 @@ export default function GroupDetailPage() {
     };
   }, [groupId]);
 
-  // Periodic refresh of challenges so countdowns transition to "expired" on the server too
+  // Periodic refresh of challenges + active meeting (so countdown expirations and
+  // remote meeting end-states surface without manual reload).
   useEffect(() => {
     if (!groupId || !group?.isMember) return;
     const id = setInterval(() => {
       api<{ challenges: Challenge[] }>(`/groups/${groupId}/challenges`, { auth: true })
         .then((r) => setChallenges(r.challenges))
         .catch(() => {});
+      void refreshActiveMeeting();
     }, 30_000);
     return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId, group?.isMember]);
 
   const refreshLeaderboard = async () => {
@@ -192,76 +213,91 @@ export default function GroupDetailPage() {
 
   return (
     <AppShell>
-      <div className="mb-4">
-        <Link
-          href="/groups"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200"
-        >
-          <ArrowLeft className="h-4 w-4" /> All groups
-        </Link>
-      </div>
+      <div className="flex h-[calc(100vh-5rem)] flex-col">
+        {/* Back link */}
+        <div className="mb-4 shrink-0">
+          <Link
+            href="/groups"
+            className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-zinc-200"
+          >
+            <ArrowLeft className="h-4 w-4" /> All groups
+          </Link>
+        </div>
 
-      <header className="glass mb-6 p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-accent-violet/30 to-accent-fuchsia/20 text-3xl">
-              {group.icon}
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-display text-3xl font-bold leading-tight">{group.name}</h1>
-              <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                {group.privacy === 'private' ? (
-                  <Lock className="h-3 w-3" />
-                ) : (
-                  <Globe className="h-3 w-3" />
-                )}
-                <span>{group.privacy}</span>
-                <span>·</span>
-                <span>{group.memberCount} members</span>
-                {group.isAdmin && (
-                  <span className="rounded-full bg-accent-violet/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent-violet">
-                    You're admin
+        {/* Fixed compact group header */}
+        <header className="glass mb-2 shrink-0 px-4 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent-violet/30 to-accent-fuchsia/20 text-base">
+                {group.icon}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="truncate font-display text-base font-bold leading-tight">{group.name}</h1>
+                  <span className="flex items-center gap-1 text-[11px] text-zinc-500">
+                    {group.privacy === 'private' ? <Lock className="h-3 w-3" /> : <Globe className="h-3 w-3" />}
+                    {group.memberCount} members
                   </span>
+                  {group.isAdmin && (
+                    <span className="rounded-full bg-accent-violet/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent-violet">
+                      admin
+                    </span>
+                  )}
+                </div>
+                {group.description && (
+                  <p className="truncate text-xs text-zinc-500">{group.description}</p>
                 )}
               </div>
-              {group.description && (
-                <p className="mt-2 max-w-2xl text-sm text-zinc-400">{group.description}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {group.isMember && group.inviteCode && <InviteCodeChip code={group.inviteCode} />}
+              {group.isMember && (
+                <button onClick={() => setPostOpen(true)} className="btn-primary px-2.5 py-1.5 text-xs" title="New challenge">
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {group.isMember && !group.isAdmin && (
+                <button onClick={handleLeave} className="btn-ghost px-2 py-1.5 text-xs" title="Leave group">
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {group.isAdmin && (
+                <button
+                  onClick={handleDelete}
+                  className="btn-ghost px-2 py-1.5 text-xs text-accent-rose hover:bg-accent-rose/10"
+                  title="Delete group"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {group.isMember && group.inviteCode && <InviteCodeChip code={group.inviteCode} />}
-            {group.isMember && (
-              <button onClick={() => setPostOpen(true)} className="btn-primary text-sm">
-                <Plus className="h-4 w-4" /> New challenge
-              </button>
-            )}
-            {group.isMember && !group.isAdmin && (
-              <button onClick={handleLeave} className="btn-ghost text-sm">
-                <LogOut className="h-4 w-4" /> Leave
-              </button>
-            )}
-            {group.isAdmin && (
-              <button
-                onClick={handleDelete}
-                className="btn-ghost text-sm text-accent-rose hover:bg-accent-rose/10"
-              >
-                <Trash2 className="h-4 w-4" /> Delete
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="mb-5 flex flex-wrap items-center gap-1 border-b border-white/5 pb-2">
+      {/* Pinned active meeting banner */}
+      {group.isMember && activeMeeting && (
+        <div className="shrink-0">
+          <ActiveMeetingBanner
+            groupId={group.id}
+            meeting={activeMeeting}
+            isAdmin={group.isAdmin}
+            onEnded={() => {
+              setActiveMeeting(null);
+              void refreshActiveMeeting();
+            }}
+          />
+        </div>
+      )}
+
+      <div className="mb-2 shrink-0 sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b border-white/5 bg-zinc-950/80 backdrop-blur-sm pb-1.5 pt-1">
         <TabBtn active={tab === 'challenges'} onClick={() => setTab('challenges')}>
           Challenges
-          <span className="ml-1 text-xs text-zinc-500">
-            ({active.length} active{past.length > 0 ? ` / ${past.length} past` : ''})
+          <span className="ml-1 text-[10px] text-zinc-500">
+            ({active.length}{past.length > 0 ? `/${past.length}` : ''})
           </span>
         </TabBtn>
         <TabBtn active={tab === 'meets'} onClick={() => setTab('meets')}>
-          🤝 Meets
+          Meets
           {meets.filter((m) => m.status === 'pending').length > 0 && (
             <span className="ml-1 rounded-full bg-accent-violet/20 px-1.5 py-0.5 text-[9px] font-bold text-accent-violet">
               {meets.filter((m) => m.status === 'pending').length}
@@ -277,56 +313,60 @@ export default function GroupDetailPage() {
         </TabBtn>
       </div>
 
-      {tab === 'challenges' && (
-        <ChallengesTab
-          group={group}
-          active={active}
-          past={past}
-          currentUserId={currentUser?.id}
-          onUpdate={onChallengeUpdate}
-          onDelete={onChallengeDelete}
-          onOpenPost={() => setPostOpen(true)}
-          onRequestMeet={(c) => setMeetTarget(c)}
-        />
-      )}
+        {/* Scrollable tab content */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {tab === 'challenges' && (
+            <ChallengesTab
+              group={group}
+              active={active}
+              past={past}
+              currentUserId={currentUser?.id}
+              onUpdate={onChallengeUpdate}
+              onDelete={onChallengeDelete}
+              onOpenPost={() => setPostOpen(true)}
+              onRequestMeet={(c) => setMeetTarget(c)}
+            />
+          )}
 
-      {tab === 'meets' && (
-        <MeetsList
-          meets={meets}
+          {tab === 'meets' && (
+            <MeetsList
+              meets={meets}
+              groupId={group.id}
+              currentUserId={currentUser?.id}
+              onUpdate={(m) =>
+                setMeets((prev) => prev.map((x) => (x.id === m.id ? m : x)))
+              }
+            />
+          )}
+
+          {tab === 'leaderboard' && <LeaderboardTab rows={leaderboard} />}
+
+          {tab === 'members' && (
+            <MembersTab
+              group={group}
+              currentUserId={currentUser?.id}
+              onRemove={handleRemoveMember}
+            />
+          )}
+        </div>{/* end scrollable tab content */}
+
+        <PostChallengeDialog
+          open={postOpen}
+          onClose={() => setPostOpen(false)}
           groupId={group.id}
-          currentUserId={currentUser?.id}
-          onUpdate={(m) =>
-            setMeets((prev) => prev.map((x) => (x.id === m.id ? m : x)))
-          }
+          onPosted={onChallengePosted}
         />
-      )}
-
-      {tab === 'leaderboard' && <LeaderboardTab rows={leaderboard} />}
-
-      {tab === 'members' && (
-        <MembersTab
-          group={group}
-          currentUserId={currentUser?.id}
-          onRemove={handleRemoveMember}
+        <RequestMeetDialog
+          open={!!meetTarget}
+          onClose={() => setMeetTarget(null)}
+          groupId={group.id}
+          challenge={meetTarget}
+          onCreated={(m) => {
+            setMeets((prev) => [m, ...prev]);
+            setTab('meets');
+          }}
         />
-      )}
-
-      <PostChallengeDialog
-        open={postOpen}
-        onClose={() => setPostOpen(false)}
-        groupId={group.id}
-        onPosted={onChallengePosted}
-      />
-      <RequestMeetDialog
-        open={!!meetTarget}
-        onClose={() => setMeetTarget(null)}
-        groupId={group.id}
-        challenge={meetTarget}
-        onCreated={(m) => {
-          setMeets((prev) => [m, ...prev]);
-          setTab('meets');
-        }}
-      />
+      </div>{/* end flex column */}
     </AppShell>
   );
 }
@@ -344,7 +384,7 @@ function TabBtn({
     <button
       onClick={onClick}
       className={cn(
-        'flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium transition',
+        'flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition',
         active ? 'bg-white/10 text-white' : 'text-zinc-400 hover:bg-white/5'
       )}
     >
@@ -368,15 +408,14 @@ function InviteCodeChip({ code }: { code: string }) {
   return (
     <button
       onClick={copy}
-      className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs hover:bg-white/10"
+      className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] hover:bg-white/10"
       title="Copy invite code"
     >
-      <span className="text-zinc-500">Invite:</span>
-      <span className="font-mono font-semibold tracking-wider text-zinc-100">{code}</span>
+      <span className="font-mono font-semibold tracking-wider text-zinc-200">{code}</span>
       {copied ? (
-        <Check className="h-3.5 w-3.5 text-accent-emerald" />
+        <Check className="h-3 w-3 text-accent-emerald" />
       ) : (
-        <Copy className="h-3.5 w-3.5 text-zinc-400" />
+        <Copy className="h-3 w-3 text-zinc-400" />
       )}
     </button>
   );
@@ -422,50 +461,44 @@ function ChallengesTab({
     );
   }
 
+  // Chronological order (first-come-first-serve = oldest first)
+  const allChallenges = [...active, ...past].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
   return (
-    <div className="space-y-6">
-      {active.length > 0 && (
-        <section>
-          <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-zinc-400">
-            🟢 Active ({active.length})
-          </h2>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {active.map((c) => (
-              <ChallengeCard
-                key={c.id}
-                challenge={c}
-                groupId={group.id}
-                isAdmin={group.isAdmin}
-                currentUserId={currentUserId}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                onRequestMeet={onRequestMeet}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-      {past.length > 0 && (
-        <section>
-          <h2 className="mb-3 font-display text-sm font-semibold uppercase tracking-wider text-zinc-400">
-            ⏳ Past ({past.length})
-          </h2>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {past.map((c) => (
-              <ChallengeCard
-                key={c.id}
-                challenge={c}
-                groupId={group.id}
-                isAdmin={group.isAdmin}
-                currentUserId={currentUserId}
-                onUpdate={onUpdate}
-                onDelete={onDelete}
-                onRequestMeet={onRequestMeet}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+    <div className="flex flex-col">
+      {/* Scrollable chat-style feed */}
+      <div className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto rounded-xl border border-white/5 bg-white/[0.01] p-4">
+        {allChallenges.map((c) => {
+          const isMine = c.createdBy === currentUserId;
+          return (
+            <div
+              key={c.id}
+              className={cn('flex w-full', isMine ? 'justify-end' : 'justify-start')}
+            >
+              <div className={cn('w-full max-w-[85%] lg:max-w-[70%]')}>
+                <ChallengeCard
+                  challenge={c}
+                  groupId={group.id}
+                  isAdmin={group.isAdmin}
+                  currentUserId={currentUserId}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
+                  onRequestMeet={onRequestMeet}
+                  align={isMine ? 'right' : 'left'}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* New challenge button at the bottom */}
+      <div className="mt-3 flex justify-center">
+        <button onClick={onOpenPost} className="btn-primary text-sm">
+          <Plus className="h-4 w-4" /> New challenge
+        </button>
+      </div>
     </div>
   );
 }

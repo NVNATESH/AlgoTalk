@@ -54,6 +54,14 @@ For \`lineComments\`: 0-8 inline comments tied to specific line numbers (must ma
 - Don't comment on every line — only where comment adds real value. Skip whitespace and trivial syntax.
 - For accepted submissions, lean toward "suggestion" / "info"; reserve "critical" for actual bugs.
 
+For \`resources\`: 2-5 *high-quality* learning resources targeted at the SPECIFIC weaknesses you identified (or the algorithmic technique used if the submission is already strong). Each item:
+- \`type\`: one of "article" | "video" | "blog" | "docs" | "repo" | "problem" | "course"
+- \`title\`: real title of the page/video — never invent
+- \`url\`: a REAL, working URL. Permitted hosts: youtube.com, leetcode.com, codeforces.com, codechef.com, atcoder.jp, hackerrank.com, geeksforgeeks.org, cp-algorithms.com, usaco.guide, cses.fi, dev.to, medium.com, freecodecamp.org, github.com, stackoverflow.com, en.wikipedia.org, neetcode.io, developer.mozilla.org, docs.python.org, cppreference.com. ANY OTHER DOMAIN WILL BE DROPPED.
+- \`topic\`: short tag (1-2 words) like "two-pointer", "DP-on-trees", "amortized-analysis"
+- \`why\`: one sentence, ≤ 25 words, on why THIS resource for THIS submission
+- If you are not confident a URL exists, OMIT that resource — fewer high-quality items beats hallucinated ones.
+
 RULES:
 - Be specific to THIS code. Don't give generic platitudes ("good job!" / "consider readability").
 - If something is well done, say WHY (e.g. "early-return saves a level of nesting").
@@ -68,6 +76,9 @@ Return STRICT JSON matching this exact shape:
   "weaknesses": ["string", ...],
   "lineComments": [
     { "line": number, "severity": "critical|warning|suggestion|info", "comment": "string" }
+  ],
+  "resources": [
+    { "type": "article|video|blog|docs|repo|problem|course", "title": "string", "url": "https://...", "topic": "string", "why": "string" }
   ]
 }`;
 }

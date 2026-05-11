@@ -23,7 +23,10 @@ interface NotificationState {
   ingestPush: (n: Notification) => void;
 }
 
-const POLL_MS = 30_000;
+// WS push is the primary delivery channel. The poll is a safety net for
+// reconnect windows / dropped pushes — 60s keeps the browser quiet without
+// noticeably delaying the unread badge if the socket is healthy.
+const POLL_MS = 60_000;
 
 export const useNotifications = create<NotificationState>((set, get) => ({
   notifications: [],

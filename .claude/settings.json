@@ -1,34 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell($pids = \\(Get-NetTCPConnection -LocalPort 5000,3000 -State Listen -ErrorAction SilentlyContinue\\).OwningProcess | Select-Object -Unique; if \\($pids\\) { $pids | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }; \"Killed: $\\($pids -join ', '\\)\" } else { \"Clean\" })",
-      "Bash(curl -sS --max-time 20 -X POST https://onecompiler-apis.p.rapidapi.com/api/v1/run -H 'x-rapidapi-key: oc_44mw7d4rx_44mw7d4sk_52ddd40996bcfa1bd89ed972c5245c334385ad381a880a06' -H 'x-rapidapi-host: onecompiler-apis.p.rapidapi.com' -H 'Content-Type: application/json' -d '{\"language\":\"python\",\"stdin\":\"\",\"files\":[{\"name\":\"main.py\",\"content\":\"print\\(\\\\\"hello from oc\\\\\"\\)\"}]}')",
-      "Bash(curl -sS --max-time 20 -X POST https://api.onecompiler.io/api/v1/run -H 'x-api-key: oc_44mw7d4rx_44mw7d4sk_52ddd40996bcfa1bd89ed972c5245c334385ad381a880a06' -H 'Content-Type: application/json' -d '{\"language\":\"python\",\"stdin\":\"\",\"files\":[{\"name\":\"main.py\",\"content\":\"print\\(\\\\\"hello from oc\\\\\"\\)\"}]}')",
-      "Bash(curl -sS --max-time 20 -X POST https://emkc.org/api/v2/piston/execute -H 'Content-Type: application/json' -d '{\"language\":\"python\",\"version\":\"3.10.0\",\"files\":[{\"name\":\"main.py\",\"content\":\"a,b=map\\(int,input\\(\\).split\\(\\)\\);print\\(a+b\\)\"}],\"stdin\":\"3 4\\\\n\"}')",
-      "Bash(curl -sS --max-time 15 -X POST \"https://onecompiler.com/api/v1/run\" -H \"x-api-key: oc_44mw7d4rx_44mw7d4sk_52ddd40996bcfa1bd89ed972c5245c334385ad381a880a06\" -H \"Content-Type: application/json\" -d '{\"language\":\"python\",\"files\":[{\"name\":\"main.py\",\"content\":\"print\\(1+1\\)\"}]}')",
-      "Bash(curl -sS --max-time 15 -X POST \"https://onecompiler.com/oneAPI/api/v1/run\" -H \"x-api-key: oc_44mw7d4rx_44mw7d4sk_52ddd40996bcfa1bd89ed972c5245c334385ad381a880a06\" -H \"Content-Type: application/json\" -d '{\"language\":\"python\",\"files\":[{\"name\":\"main.py\",\"content\":\"print\\(1+1\\)\"}]}')",
-      "Bash(curl -sS --max-time 15 -X POST \"https://api.onecompiler.com/api/v1/run\" -H \"x-api-key: oc_44mw7d4rx_44mw7d4sk_52ddd40996bcfa1bd89ed972c5245c334385ad381a880a06\" -H \"Content-Type: application/json\" -d '{\"language\":\"python\",\"files\":[{\"name\":\"main.py\",\"content\":\"print\\(1+1\\)\"}]}')",
-      "Bash(curl -sS --max-time 15 -X POST \"https://onecompiler-apis.p.rapidapi.com/api/v1/run\" -H \"x-api-key: oc_44mw7d4rx_44mw7d4sk_52ddd40996bcfa1bd89ed972c5245c334385ad381a880a06\" -H \"Content-Type: application/json\" -d '{\"language\":\"python\",\"files\":[{\"name\":\"main.py\",\"content\":\"print\\(1+1\\)\"}]}')",
-      "Bash(curl -sS --max-time 120 -o /dev/null -w \"%{http_code} t=%{time_total}s\\\\n\" \"http://localhost:3000/problems\")",
-      "Bash(curl -sS --max-time 120 -o /dev/null -w \"%{http_code} t=%{time_total}s\\\\n\" \"http://localhost:3000/solve/two-sum\")",
-      "Bash(node -e \"let s='';process.stdin.on\\('data',d=>s+=d\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(s\\);console.log\\('Hint:',\\(j.hint||''\\).slice\\(0,200\\)\\)}\\)\")",
-      "Bash(curl -sS \"https://leetcode.com/graphql\" -X POST -H \"Content-Type: application/json\" -H \"User-Agent: Mozilla/5.0\" -d '{\"query\":\"query{recentSubmissionList\\(username:\\\\\"sai2327\\\\\",limit:15\\){id title titleSlug timestamp lang statusDisplay}}\"}')",
-      "Bash(curl -sS \"https://leetcode.com/graphql\" -X POST -H \"Content-Type: application/json\" -H \"User-Agent: Mozilla/5.0\" -d '{\"query\":\"query{matchedUser\\(username:\\\\\"sai2327\\\\\"\\){username submitStats:submitStatsGlobal{acSubmissionNum{difficulty count}} problemsSolvedBeatsStats{difficulty percentage}}}\"}')",
-      "Bash(curl -sS \"https://leetcode.com/graphql\" -X POST -H \"Content-Type: application/json\" -H \"User-Agent: Mozilla/5.0\" -d '{\"query\":\"query{matchedUser\\(username:\\\\\"saiteja2327\\\\\"\\){username profile{ranking realName} submitStatsGlobal{acSubmissionNum{difficulty count}}}}\"}')",
-      "Bash(curl -sS \"https://leetcode.com/graphql\" -X POST -H \"Content-Type: application/json\" -d '{\"query\":\"query{matchedUser\\(username:\\\\\"saiteja2327\\\\\"\\){problemsSolvedBeatsStats{difficulty percentage} userCalendar{activeYears submissionCalendar}}}\"}')",
-      "Bash(curl -sS \"https://www.codechef.com/recent/user?user_handle=versatilesai23&page=0\" -H \"User-Agent: Mozilla/5.0\" -H \"Referer: https://www.codechef.com/\")",
-      "Bash(curl -sS \"https://www.hackerrank.com/rest/contests/master/hackers/saitejak2327/recent_challenges?limit=10&offset=0\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sS \"https://www.hackerrank.com/profile/saitejak2327\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sS \"https://www.hackerrank.com/rest/hackers/saitejak2327/scores_elo?include_practice=true\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sS \"https://www.hackerrank.com/rest/hackers/saitejak2327/recent_challenges?limit=10&offset=0\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sS \"https://www.hackerrank.com/rest/hackers/saitejak2327/recent_challenges?limit=10&offset=0\" -H \"User-Agent: Mozilla/5.0\" -H \"Accept-Encoding: identity\")",
-      "Bash(curl -sS --compressed \"https://www.hackerrank.com/rest/hackers/saitejak2327/recent_challenges?limit=10&offset=0\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sS \"https://gfgserver.geeksforgeeks.org/user/saitejacvpe/profile\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sS --compressed \"https://auth.geeksforgeeks.org/user/saitejacvpe/practice\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sLS --compressed \"https://www.geeksforgeeks.org/user/saitejacvpe/\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(grep -oE 'profile_image[^\"]+\\\\|\"problemsSolved\":[0-9]+\\\\|practice/.{1,80}')",
-      "Bash(curl -sLS --compressed \"https://practiceapi.geeksforgeeks.org/api/v1/user/profile/?handle=saitejacvpe\" -H \"User-Agent: Mozilla/5.0\")",
-      "Bash(curl -sLS --compressed \"https://www.geeksforgeeks.org/gfg-assets/_next/data/latest/user/saitejacvpe.json\" -H \"User-Agent: Mozilla/5.0\")"
+      "Bash(npm install *)",
+      "Bash(npx tsx *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(echo \"BE_EXIT=$?\")",
+      "Bash(echo \"FE_EXIT=$?\")"
     ]
   }
 }

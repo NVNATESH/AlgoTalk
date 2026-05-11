@@ -1,13 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Sparkles, Target, TrendingUp, Calendar } from 'lucide-react';
+import { Gamepad2, Briefcase, Plus, BookOpen } from 'lucide-react';
 import { AppShell } from '@/components/AppShell';
+import { DashboardHero } from '@/components/dashboard/DashboardHero';
+import { ContinueLearningSection } from '@/components/dashboard/ContinueLearningSection';
+import { DailyStreakDisplay } from '@/components/dashboard/DailyStreakDisplay';
 import { GoalCard } from '@/components/dashboard/GoalCard';
 import { GoalTimeline } from '@/components/dashboard/GoalTimeline';
 import { BurnoutBanner } from '@/components/dashboard/BurnoutBanner';
 import { CreateGoalDialog } from '@/components/dashboard/CreateGoalDialog';
+import { WeeklyProgressCard } from '@/components/dashboard/WeeklyProgressCard';
 import { useGoals } from '@/stores/goalStore';
 import { useAuth } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
@@ -15,14 +20,15 @@ import { cn } from '@/lib/utils';
 type FilterTab = 'all' | 'active' | 'paused' | 'completed';
 
 export default function DashboardPage() {
-  const { goals, fetch, loaded, loading } = useGoals();
+  const { goals, fetch, loaded, loading, quests, fetchQuests } = useGoals();
   const user = useAuth((s) => s.user);
   const [createOpen, setCreateOpen] = useState(false);
   const [tab, setTab] = useState<FilterTab>('all');
 
   useEffect(() => {
     fetch();
-  }, [fetch]);
+    fetchQuests();
+  }, [fetch, fetchQuests]);
 
   const filtered = useMemo(() => {
     if (tab === 'all') return goals.filter((g) => g.status !== 'archived');
@@ -42,63 +48,97 @@ export default function DashboardPage() {
     return left > 0 && g.progress >= expected - 10;
   }).length;
 
-  const subtitle = (() => {
-    if (activeGoals.length === 0) return "You're a clean slate. Pick something to learn.";
-    if (focused) return `You're focused on "${focused.name}" — ${focused.progress}% there.`;
-    if (totalProgress >= 70) return `You're ${totalProgress}% on track this week — keep going!`;
-    if (totalProgress < 25 && activeGoals.length > 0) return '⚠️ Most goals are early — pick one and start.';
-    return `${onTrack}/${activeGoals.length} goals on track. Pace yourself.`;
-  })();
+  const bestStreak = goals.reduce((m, g) => Math.max(m, g.streak ?? 0), 0);
 
   return (
     <AppShell>
-      <header className="mb-8">
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-wrap items-end justify-between gap-4"
-        >
-          <div>
-            <div className="flex items-center gap-2 text-xs font-medium text-accent-violet">
-              <Sparkles className="h-3 w-3" /> {greet(user?.name)}
-            </div>
-            <h1 className="mt-1 font-display text-4xl font-bold tracking-tight md:text-5xl">
-              🎯 My Goals Dashboard
-            </h1>
-            <p className="mt-2 text-zinc-400">{subtitle}</p>
-          </div>
-          <button onClick={() => setCreateOpen(true)} className="btn-primary">
-            <Plus className="h-4 w-4" /> New Goal
-          </button>
-        </motion.div>
+      <DashboardHero
+        userName={user?.name}
+        xp={user?.xp ?? 0}
+        rank={user?.level ?? 'Beginner'}
+        streak={bestStreak}
+        activeGoals={activeGoals.length}
+        totalProgress={totalProgress}
+        onTrack={onTrack}
+        totalActive={activeGoals.length}
+        focused={focused ? { name: focused.name, progress: focused.progress } : null}
+        onCreateGoal={() => setCreateOpen(true)}
+      />
 
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <SmartStat
-            icon={Target}
-            label="Active goals"
-            value={String(activeGoals.length)}
-            tint="violet"
-          />
-          <SmartStat
-            icon={TrendingUp}
-            label="Avg. progress"
-            value={`${totalProgress}%`}
-            tint="emerald"
-          />
-          <SmartStat
-            icon={Sparkles}
-            label="On track"
-            value={`${onTrack}/${activeGoals.length || 0}`}
-            tint="cyan"
-          />
-          <SmartStat
-            icon={Calendar}
-            label="Total XP"
-            value={String(user?.xp ?? 0)}
-            tint="fuchsia"
-          />
+      <GoalsJumpNav />
+
+      <DailyStreakDisplay goals={goals} />
+
+      <ContinueLearningSection goals={goals} />
+
+      {/* Quest & Interview Quick Access */}
+      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Link
+          href="/quests"
+          className="glass group flex items-start gap-4 p-5 transition hover:border-accent-violet/40"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent-violet/30 to-accent-fuchsia/30 text-2xl">
+            <Gamepad2 className="h-6 w-6 text-accent-violet" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-display text-lg font-semibold group-hover:text-accent-violet transition">
+              Quest Challenges
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Structured, admin-curated learning paths with XP rewards. Master topics step-by-step.
+            </p>
+            {quests.length > 0 && (
+              <p className="mt-2 text-xs text-accent-violet">
+                {quests.length} active quest{quests.length > 1 ? 's' : ''} in progress
+              </p>
+            )}
+          </div>
+        </Link>
+        <Link
+          href="/goals/recommended"
+          className="glass group flex items-start gap-4 p-5 transition hover:border-accent-emerald/40"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent-emerald/30 to-teal-500/30">
+            <BookOpen className="h-6 w-6 text-accent-emerald" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-display text-lg font-semibold group-hover:text-accent-emerald transition">
+              Curated Sheets
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Striver SDE Sheet, Love Babbar 450, NeetCode 150, Blind 75, company prep paths.
+            </p>
+          </div>
+        </Link>
+        <Link
+          href="/interview"
+          className="glass group flex items-start gap-4 p-5 transition hover:border-accent-cyan/40"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent-cyan/30 to-accent-emerald/30 text-2xl">
+            <Briefcase className="h-6 w-6 text-accent-cyan" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-display text-lg font-semibold group-hover:text-accent-cyan transition">
+              Interview Practice
+            </h3>
+            <p className="mt-1 text-sm text-zinc-400">
+              Company-specific mock interviews with AI feedback. DSA, System Design, SQL & more.
+            </p>
+          </div>
+        </Link>
+      </section>
+
+      <WeeklyProgressCard />
+
+      <section id="my-goals" className="mb-10 scroll-mt-24">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-display text-2xl font-bold">My Goals</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              Track active, paused, and completed learning plans.
+            </p>
+          </div>
         </div>
-      </header>
 
       <div className="mb-5 flex flex-wrap items-center gap-1 border-b border-white/5 pb-2">
         {(['all', 'active', 'paused', 'completed'] as FilterTab[]).map((t) => (
@@ -132,7 +172,7 @@ export default function DashboardPage() {
                 <div>
                   <h3 className="font-display text-base font-semibold">Timeline</h3>
                   <p className="text-[11px] text-zinc-500">
-                    Start → deadline for every active goal · today is the violet line.
+                    Start to deadline for every active goal. Today is the violet line.
                   </p>
                 </div>
               </div>
@@ -151,43 +191,33 @@ export default function DashboardPage() {
         </>
       )}
 
+      </section>
+
       <CreateGoalDialog open={createOpen} onClose={() => setCreateOpen(false)} />
     </AppShell>
   );
 }
 
-function greet(name?: string) {
-  const h = new Date().getHours();
-  const part = h < 5 ? 'Late night' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
-  return name ? `${part}, ${name.split(' ')[0]}` : part;
-}
+function GoalsJumpNav() {
+  const items = [
+    { href: '#overview', label: 'Overview' },
+    { href: '#my-goals', label: 'My Goals' },
+    { href: '/goals/recommended', label: 'Curated Sheets' },
+    { href: '/quests', label: 'Quests' },
+    { href: '/interview', label: 'Interview Prep' },
+  ];
 
-function SmartStat({
-  icon: Icon,
-  label,
-  value,
-  tint,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: string;
-  tint: 'violet' | 'emerald' | 'cyan' | 'fuchsia';
-}) {
-  const map = {
-    violet: 'from-accent-violet/30 to-accent-violet/5 text-accent-violet',
-    emerald: 'from-accent-emerald/30 to-accent-emerald/5 text-accent-emerald',
-    cyan: 'from-accent-cyan/30 to-accent-cyan/5 text-accent-cyan',
-    fuchsia: 'from-accent-fuchsia/30 to-accent-fuchsia/5 text-accent-fuchsia',
-  } as const;
   return (
-    <div className="glass flex items-center gap-3 p-4">
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br', map[tint])}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <div className="font-display text-2xl font-bold tabular-nums">{value}</div>
-        <div className="text-[11px] uppercase tracking-wider text-zinc-500">{label}</div>
-      </div>
+    <div className="sticky top-[73px] z-20 -mx-2 mb-6 flex gap-1 overflow-x-auto border-y border-white/5 bg-bg/80 px-2 py-2 backdrop-blur md:static md:mx-0 md:border-y-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+      {items.map((item) => (
+        <a
+          key={item.href}
+          href={item.href}
+          className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-accent-violet/40 hover:text-white"
+        >
+          {item.label}
+        </a>
+      ))}
     </div>
   );
 }

@@ -40,8 +40,13 @@ export function Markdown({ children, className }: { children: string; className?
               {...p}
             />
           ),
-          code: ({ inline, className, children, ...props }: any) => {
-            if (inline) {
+          code: ({ className, children, node, ...props }: any) => {
+            // Determine if this is a block code (inside <pre>) vs inline code.
+            // In react-markdown v9+, the `inline` prop was removed — check parent instead.
+            const isBlock = node?.position && node?.properties?.className?.length > 0
+              || (node as any)?.parentNode?.tagName === 'pre'
+              || /language-(\w+)/.test(className || '');
+            if (!isBlock) {
               return (
                 <code
                   className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.85em] text-accent-fuchsia"
@@ -65,6 +70,10 @@ export function Markdown({ children, className }: { children: string; className?
               </div>
             );
           },
+          // Override <pre> to render as a plain wrapper (the block <code> handler above
+          // already produces the styled <div>+<pre>). Without this, react-markdown's default
+          // <pre> wraps the block code and causes a <pre> inside <pre> nesting issue.
+          pre: ({ children }: any) => <>{children}</>,
           table: (p) => (
             <div className="my-3 overflow-x-auto rounded-xl border border-white/10">
               <table className="w-full text-sm" {...p} />
